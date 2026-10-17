@@ -17,7 +17,7 @@ object MimeTypeUtils {
             "flv" -> "video/x-flv"
             "webm" -> "video/webm"
             "3gp", "3g2" -> "video/3gpp"
-            "ts" -> "video/mp2t"
+            "ts", "m2ts" -> "video/mp2t"
             "mpg", "mpeg" -> "video/mpeg"
 
             "mp3" -> "audio/mpeg"
@@ -28,6 +28,8 @@ object MimeTypeUtils {
             "m4a" -> "audio/mp4"
             "wma" -> "audio/x-ms-wma"
             "opus" -> "audio/opus"
+            "ac3" -> "audio/ac3"
+            "eac3" -> "audio/eac3"
 
             "jpg", "jpeg" -> "image/jpeg"
             "png" -> "image/png"
@@ -52,17 +54,14 @@ object MimeTypeUtils {
     }
 
     fun getDlnaProfile(file: File): String {
-        if (file.isDirectory) return "*"
+        if (file.isDirectory) return ""
         val extension = file.extension.lowercase(Locale.ROOT)
         return when (extension) {
             "jpg", "jpeg" -> "JPEG_LRG"
             "png" -> "PNG_LRG"
             "mp3" -> "MP3"
             "flac" -> "FLAC"
-            "aac", "m4a" -> "AAC_ISO"
-            "mp4", "m4v" -> "AVC_MP4_MP_SD"
-            "mpg", "mpeg" -> "MPEG_PS_PAL"
-            else -> "*"
+            else -> ""
         }
     }
 }
