@@ -391,6 +391,7 @@ object ContentDirectoryXml {
             duration = metadata.durationFormatted,
             resolution = metadata.resolution,
             bitrate = metadata.bitrate,
+            sampleFrequency = metadata.sampleFrequency,
             url = mediaUrl
         )
 

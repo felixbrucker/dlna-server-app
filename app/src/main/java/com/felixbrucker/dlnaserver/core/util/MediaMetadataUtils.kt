@@ -1,6 +1,7 @@
 package com.felixbrucker.dlnaserver.core.util
 
 import android.media.MediaMetadataRetriever
+import android.os.Build
 import java.io.File
 
 data class ExtractedMediaMetadata(
@@ -8,7 +9,6 @@ data class ExtractedMediaMetadata(
     val resolution: String? = null,
     val bitrate: Long? = null,
     val sampleFrequency: Long? = null,
-    val audioChannels: Int? = null,
     val artist: String? = null,
     val album: String? = null,
     val genre: String? = null
@@ -28,11 +28,15 @@ object MediaMetadataUtils {
 
             val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
             val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
-            val resolutionStr = if (!width.isNull_or_empty() && !height.isNull_or_empty()) {
+            val resolutionStr = if (!width.isNullOrEmpty() && !height.isNullOrEmpty()) {
                 "${width}x${height}"
             } else null
 
             val bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
+            val sampleFrequency = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toLongOrNull()
+            } else null
+
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
@@ -42,6 +46,7 @@ object MediaMetadataUtils {
                 durationFormatted = durationStr,
                 resolution = resolutionStr,
                 bitrate = bitrate,
+                sampleFrequency = sampleFrequency,
                 artist = artist,
                 album = album,
                 genre = genre
@@ -63,9 +68,5 @@ object MediaMetadataUtils {
         val seconds = secondsTotal % 60
         val millis = durationMs % 1000
         return String.format(java.util.Locale.US, "%02d:%02d:%02d.%03d", hours, minutes, seconds, millis)
-    }
-
-    private fun String?.isNull_or_empty(): Boolean {
-        return this == null || this.trim().isEmpty()
     }
 }
