@@ -5,8 +5,16 @@ import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import java.io.File
 import java.net.URLDecoder
 import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 object ContentDirectoryXml {
+
+    private val isoDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
 
     fun generateDeviceDescription(
         ipAddress: String,
@@ -245,7 +253,7 @@ object ContentDirectoryXml {
         baseUrl: String
     ): String {
         val didlBuilder = StringBuilder()
-        didlBuilder.append("""<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">""")
+        didlBuilder.append("""<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/" xmlns:sec="http://www.sec.co.kr/dlna">""")
 
         var totalMatches = 0
         var returnedCount = 0
@@ -330,6 +338,8 @@ object ContentDirectoryXml {
                             val mediaUrl = "$baseUrl/media?path=$encPath"
                             val mimeType = MimeTypeUtils.getMimeType(file)
                             val upnpClass = MimeTypeUtils.getUpnpClass(file)
+                            val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
+                            val modDate = isoDateFormat.format(Date(file.lastModified()))
                             didlBuilder.append(
                                 createItemXml(
                                     id = "i_$encPath",
@@ -337,7 +347,9 @@ object ContentDirectoryXml {
                                     title = file.name,
                                     upnpClass = upnpClass,
                                     mimeType = mimeType,
+                                    dlnaProfile = dlnaProfile,
                                     size = file.length(),
+                                    dateStr = modDate,
                                     mediaUrl = mediaUrl
                                 )
                             )
@@ -355,6 +367,8 @@ object ContentDirectoryXml {
                 val mediaUrl = "$baseUrl/media?path=$encPath"
                 val mimeType = MimeTypeUtils.getMimeType(file)
                 val upnpClass = MimeTypeUtils.getUpnpClass(file)
+                val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
+                val modDate = isoDateFormat.format(Date(file.lastModified()))
                 didlBuilder.append(
                     createItemXml(
                         id = objectID,
@@ -362,7 +376,9 @@ object ContentDirectoryXml {
                         title = file.name,
                         upnpClass = upnpClass,
                         mimeType = mimeType,
+                        dlnaProfile = dlnaProfile,
                         size = file.length(),
+                        dateStr = modDate,
                         mediaUrl = mediaUrl
                     )
                 )
@@ -418,13 +434,15 @@ object ContentDirectoryXml {
         title: String,
         upnpClass: String,
         mimeType: String,
+        dlnaProfile: String,
         size: Long,
+        dateStr: String,
         mediaUrl: String
     ): String {
         val escapedTitle = escapeXml(title)
         val escapedUrl = escapeXml(mediaUrl)
-        val protocolInfo = "http-get:*:$mimeType:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-        return """<item id="$id" parentID="$parentId" restricted="1"><dc:title>$escapedTitle</dc:title><upnp:class>$upnpClass</upnp:class><res protocolInfo="$protocolInfo" size="$size">$escapedUrl</res></item>"""
+        val protocolInfo = "http-get:*:$mimeType:DLNA.ORG_PN=$dlnaProfile;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+        return """<item id="$id" parentID="$parentId" restricted="1"><dc:title>$escapedTitle</dc:title><dc:date>$dateStr</dc:date><upnp:class>$upnpClass</upnp:class><res protocolInfo="$protocolInfo" size="$size">$escapedUrl</res></item>"""
     }
 
     fun encodePath(path: String): String {

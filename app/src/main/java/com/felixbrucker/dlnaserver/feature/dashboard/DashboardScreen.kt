@@ -1,5 +1,7 @@
 package com.felixbrucker.dlnaserver.feature.dashboard
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,14 +18,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.util.PermissionUtils
 import com.felixbrucker.dlnaserver.feature.dashboard.components.DirectoryList
 import com.felixbrucker.dlnaserver.feature.dashboard.components.FolderPickerDialog
+import com.felixbrucker.dlnaserver.feature.dashboard.components.PermissionCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.ServerStatusCard
 
 @Composable
@@ -34,12 +39,40 @@ fun DashboardScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        viewModel.setPermissionGranted(PermissionUtils.hasStoragePermission(context))
+    }
+
+    LaunchedEffect(Unit) {
+        if (!PermissionUtils.hasStoragePermission(context) || !PermissionUtils.hasNotificationPermission(context)) {
+            permissionLauncher.launch(PermissionUtils.getRequiredPermissions())
+        }
+        viewModel.setPermissionGranted(PermissionUtils.hasStoragePermission(context))
+    }
+
     DashboardContent(
         uiState = uiState,
-        onToggleServer = { viewModel.toggleServer(context) },
+        onToggleServer = {
+            if (!PermissionUtils.hasStoragePermission(context)) {
+                PermissionUtils.openAppSettings(context)
+            } else {
+                viewModel.toggleServer(context)
+            }
+        },
         onToggleDirectory = { viewModel.toggleDirectory(it) },
         onDeleteDirectory = { viewModel.deleteDirectory(it) },
-        onOpenFolderPicker = { viewModel.setFolderPickerOpen(true) },
+        onOpenFolderPicker = {
+            if (!PermissionUtils.hasStoragePermission(context)) {
+                PermissionUtils.openAppSettings(context)
+            } else {
+                viewModel.setFolderPickerOpen(true)
+            }
+        },
+        onRequestPermissions = {
+            PermissionUtils.openAppSettings(context)
+        },
         modifier = modifier
     )
 
@@ -61,6 +94,7 @@ private fun DashboardContent(
     onToggleDirectory: (SharedDirectory) -> Unit,
     onDeleteDirectory: (Long) -> Unit,
     onOpenFolderPicker: () -> Unit,
+    onRequestPermissions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -74,6 +108,10 @@ private fun DashboardContent(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
+            if (!uiState.permissionGranted) {
+                PermissionCard(onRequestPermission = onRequestPermissions)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             ServerStatusCard(serverInfo = uiState.serverInfo, onToggleServer = onToggleServer)
             Spacer(modifier = Modifier.height(16.dp))
             SectionHeader()

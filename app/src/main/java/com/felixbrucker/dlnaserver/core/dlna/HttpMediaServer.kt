@@ -99,7 +99,7 @@ class HttpMediaServer(
             val parts = requestLine.split(" ")
             if (parts.size < 2) return
 
-            val method = parts[0]
+            val method = parts[0].uppercase()
             val uri = parts[1]
 
             val headers = mutableMapOf<String, String>()
@@ -156,7 +156,7 @@ class HttpMediaServer(
                     val pathParam = uri.substringAfter("path=", "")
                     if (pathParam.isNotEmpty()) {
                         val filePath = ContentDirectoryXml.decodePath(pathParam)
-                        serveMediaFile(socket, outputStream, File(filePath), headers)
+                        serveMediaFile(socket, outputStream, File(filePath), headers, isHeadOnly = method == "HEAD")
                     } else {
                         sendNotFound(outputStream)
                     }
@@ -192,11 +192,18 @@ class HttpMediaServer(
     }
 
     private fun handleConnectionManagerControl(): String {
+        val protocols = "http-get:*:video/mp4:DLNA.ORG_PN=AVC_MP4_MP_SD;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+                "http-get:*:video/x-matroska:*," +
+                "http-get:*:video/mpeg:*," +
+                "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+                "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+                "http-get:*:image/png:DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+                "http-get:*:*:*"
         return """<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
   <s:Body>
     <u:GetProtocolInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
-      <Source>http-get:*:*:*</Source>
+      <Source>$protocols</Source>
       <Sink></Sink>
     </u:GetProtocolInfoResponse>
   </s:Body>
@@ -207,7 +214,8 @@ class HttpMediaServer(
         socket: Socket,
         outputStream: OutputStream,
         file: File,
-        headers: Map<String, String>
+        headers: Map<String, String>,
+        isHeadOnly: Boolean = false
     ) {
         if (!file.exists() || !file.isFile) {
             sendNotFound(outputStream)
@@ -271,6 +279,10 @@ class HttpMediaServer(
         }
         printWriter.println()
         printWriter.flush()
+
+        if (isHeadOnly) {
+            return
+        }
 
         FileInputStream(file).use { fileStream ->
             fileStream.skip(start)

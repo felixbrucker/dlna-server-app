@@ -44,10 +44,25 @@ object MimeTypeUtils {
         if (file.isDirectory) return "object.container.storageFolder"
         val mimeType = getMimeType(file)
         return when {
-            mimeType.startsWith("video/") -> "object.item.videoItem"
+            mimeType.startsWith("video/") -> "object.item.videoItem.movie"
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"
             mimeType.startsWith("image/") -> "object.item.imageItem.photo"
             else -> "object.item.mediaItem"
+        }
+    }
+
+    fun getDlnaProfile(file: File): String {
+        if (file.isDirectory) return "*"
+        val extension = file.extension.lowercase(Locale.ROOT)
+        return when (extension) {
+            "jpg", "jpeg" -> "JPEG_LRG"
+            "png" -> "PNG_LRG"
+            "mp3" -> "MP3"
+            "flac" -> "FLAC"
+            "aac", "m4a" -> "AAC_ISO"
+            "mp4", "m4v" -> "AVC_MP4_MP_SD"
+            "mpg", "mpeg" -> "MPEG_PS_PAL"
+            else -> "*"
         }
     }
 }
