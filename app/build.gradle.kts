@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kover)
 }
 
 android {
@@ -69,6 +70,35 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+kover {
+    reports {
+        total {
+            verify {
+                rule {
+                    minBound(10)
+                }
+            }
+        }
+        filters {
+            excludes {
+                classes(
+                    "*.BuildConfig",
+                    "*Activity*",
+                    "*Screen*",
+                    "*Theme*",
+                    "*Hilt_*",
+                    "*Factory*",
+                    "*_Factory*",
+                    "*_HiltModules*",
+                    "*_Provide*",
+                    "*_MembersInjector*"
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
+        }
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -97,7 +127,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.room.runtime)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
