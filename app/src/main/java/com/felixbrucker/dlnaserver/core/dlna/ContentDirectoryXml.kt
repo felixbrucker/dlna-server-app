@@ -441,12 +441,8 @@ object ContentDirectoryXml {
     ): String {
         val escapedTitle = escapeXml(title)
         val escapedUrl = escapeXml(mediaUrl)
-        val protocolInfo = if (mimeType.startsWith("video/")) {
-            "http-get:*:$mimeType:*"
-        } else {
-            val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
-            "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-        }
+        val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
+        val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
 
         val sb = StringBuilder()
         sb.append("""<item id="$id" parentID="$parentId" restricted="1">""")

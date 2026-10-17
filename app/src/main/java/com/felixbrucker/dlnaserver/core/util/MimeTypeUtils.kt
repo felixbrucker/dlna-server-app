@@ -57,6 +57,9 @@ object MimeTypeUtils {
         if (file.isDirectory) return ""
         val extension = file.extension.lowercase(Locale.ROOT)
         return when (extension) {
+            "mkv" -> "MATROSKA"
+            "mp4", "m4v" -> "AVC_MP4_MP_SD"
+            "mpg", "mpeg", "ts", "m2ts" -> "MPEG_PS_PAL"
             "jpg", "jpeg" -> "JPEG_LRG"
             "png" -> "PNG_LRG"
             "mp3" -> "MP3"
