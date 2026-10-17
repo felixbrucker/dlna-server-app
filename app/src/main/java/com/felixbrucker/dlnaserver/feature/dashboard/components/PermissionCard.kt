@@ -69,7 +69,7 @@ private fun PermissionCardText() {
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Storage access is needed to index files in shared folders and serve media over DLNA.",
+            text = "Storage and notification access are required to index files in shared folders and run the DLNA server service.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             textAlign = TextAlign.Center,

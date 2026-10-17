@@ -11,13 +11,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SharedDirectoryDao {
-    @Query("SELECT * FROM shared_directories ORDER BY addedTimestamp DESC")
+    @Query("SELECT * FROM shared_directories ORDER BY displayName COLLATE NOCASE ASC, path COLLATE NOCASE ASC")
     fun getAllDirectories(): Flow<List<SharedDirectoryEntity>>
 
-    @Query("SELECT * FROM shared_directories WHERE isEnabled = 1 ORDER BY addedTimestamp DESC")
+    @Query("SELECT * FROM shared_directories WHERE isEnabled = 1 ORDER BY displayName COLLATE NOCASE ASC, path COLLATE NOCASE ASC")
     fun getEnabledDirectories(): Flow<List<SharedDirectoryEntity>>
 
-    @Query("SELECT * FROM shared_directories WHERE isEnabled = 1 ORDER BY addedTimestamp DESC")
+    @Query("SELECT * FROM shared_directories WHERE isEnabled = 1 ORDER BY displayName COLLATE NOCASE ASC, path COLLATE NOCASE ASC")
     suspend fun getEnabledDirectoriesSync(): List<SharedDirectoryEntity>
 
     @Query("SELECT * FROM shared_directories WHERE path = :path LIMIT 1")
