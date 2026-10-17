@@ -1,6 +1,13 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import com.felixbrucker.dlnaserver.core.dlna.model.DidlContainer
+import com.felixbrucker.dlnaserver.core.dlna.model.DidlItem
+import com.felixbrucker.dlnaserver.core.dlna.model.DidlLite
+import com.felixbrucker.dlnaserver.core.dlna.model.DidlObject
+import com.felixbrucker.dlnaserver.core.dlna.model.DidlResource
+import com.felixbrucker.dlnaserver.core.dlna.model.SoapBrowseResponse
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import java.io.File
 import java.net.URLDecoder
@@ -252,16 +259,14 @@ object ContentDirectoryXml {
         sharedDirectories: List<SharedDirectory>,
         baseUrl: String
     ): String {
-        val didlBuilder = StringBuilder()
-        didlBuilder.append("""<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/" xmlns:sec="http://www.sec.co.kr/dlna">""")
-
+        val objectsList = mutableListOf<DidlObject>()
         var totalMatches = 0
         var returnedCount = 0
 
         if (objectID == "0") {
             if (browseFlag == "BrowseMetadata") {
-                didlBuilder.append(
-                    createContainerXml(
+                objectsList.add(
+                    DidlContainer(
                         id = "0",
                         parentId = "-1",
                         title = "Root",
@@ -283,8 +288,8 @@ object ContentDirectoryXml {
                     val file = File(dir.path)
                     val childCount = if (file.exists() && file.isDirectory) file.listFiles()?.size ?: 0 else 0
                     val encPath = encodePath(dir.path)
-                    didlBuilder.append(
-                        createContainerXml(
+                    objectsList.add(
+                        DidlContainer(
                             id = "f_$encPath",
                             parentId = "0",
                             title = dir.displayName,
@@ -301,8 +306,8 @@ object ContentDirectoryXml {
                 if (browseFlag == "BrowseMetadata") {
                     val childCount = targetDir.listFiles()?.size ?: 0
                     val parentId = getParentContainerId(targetDir, sharedDirectories)
-                    didlBuilder.append(
-                        createContainerXml(
+                    objectsList.add(
+                        DidlContainer(
                             id = objectID,
                             parentId = parentId,
                             title = targetDir.name,
@@ -326,8 +331,8 @@ object ContentDirectoryXml {
                         val encPath = encodePath(file.absolutePath)
                         if (file.isDirectory) {
                             val childCount = file.listFiles()?.size ?: 0
-                            didlBuilder.append(
-                                createContainerXml(
+                            objectsList.add(
+                                DidlContainer(
                                     id = "f_$encPath",
                                     parentId = objectID,
                                     title = file.name,
@@ -336,23 +341,7 @@ object ContentDirectoryXml {
                             )
                         } else {
                             val mediaUrl = "$baseUrl/media?path=$encPath"
-                            val mimeType = MimeTypeUtils.getMimeType(file)
-                            val upnpClass = MimeTypeUtils.getUpnpClass(file)
-                            val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
-                            val modDate = isoDateFormat.format(Date(file.lastModified()))
-                            didlBuilder.append(
-                                createItemXml(
-                                    id = "i_$encPath",
-                                    parentId = objectID,
-                                    title = file.name,
-                                    upnpClass = upnpClass,
-                                    mimeType = mimeType,
-                                    dlnaProfile = dlnaProfile,
-                                    size = file.length(),
-                                    dateStr = modDate,
-                                    mediaUrl = mediaUrl
-                                )
-                            )
+                            objectsList.add(buildDidlItem(objectID, file, encPath, mediaUrl, sharedDirectories))
                         }
                         returnedCount++
                     }
@@ -363,44 +352,61 @@ object ContentDirectoryXml {
             val file = File(path)
             if (file.exists() && file.isFile) {
                 val encPath = encodePath(file.absolutePath)
-                val parentId = getParentContainerId(file, sharedDirectories)
                 val mediaUrl = "$baseUrl/media?path=$encPath"
-                val mimeType = MimeTypeUtils.getMimeType(file)
-                val upnpClass = MimeTypeUtils.getUpnpClass(file)
-                val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
-                val modDate = isoDateFormat.format(Date(file.lastModified()))
-                didlBuilder.append(
-                    createItemXml(
-                        id = objectID,
-                        parentId = parentId,
-                        title = file.name,
-                        upnpClass = upnpClass,
-                        mimeType = mimeType,
-                        dlnaProfile = dlnaProfile,
-                        size = file.length(),
-                        dateStr = modDate,
-                        mediaUrl = mediaUrl
-                    )
-                )
+                objectsList.add(buildDidlItem("i_$encPath", file, encPath, mediaUrl, sharedDirectories))
                 totalMatches = 1
                 returnedCount = 1
             }
         }
 
-        didlBuilder.append("</DIDL-Lite>")
-        val escapedResult = escapeXml(didlBuilder.toString())
+        val didlLite = DidlLite(objects = objectsList)
+        val response = SoapBrowseResponse(
+            didlLite = didlLite,
+            numberReturned = returnedCount,
+            totalMatches = totalMatches
+        )
+        return response.toXml()
+    }
 
-        return """<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-  <s:Body>
-    <u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
-      <Result>$escapedResult</Result>
-      <NumberReturned>$returnedCount</NumberReturned>
-      <TotalMatches>$totalMatches</TotalMatches>
-      <UpdateID>1</UpdateID>
-    </u:BrowseResponse>
-  </s:Body>
-</s:Envelope>"""
+    private fun buildDidlItem(
+        parentId: String,
+        file: File,
+        encPath: String,
+        mediaUrl: String,
+        sharedDirectories: List<SharedDirectory>
+    ): DidlItem {
+        val mimeType = MimeTypeUtils.getMimeType(file)
+        val upnpClass = MimeTypeUtils.getUpnpClass(file)
+        val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
+        val modDate = isoDateFormat.format(Date(file.lastModified()))
+
+        val metadata = MediaMetadataUtils.extractMetadata(file)
+
+        val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
+        val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+
+        val resource = DidlResource(
+            protocolInfo = protocolInfo,
+            size = file.length(),
+            duration = metadata.durationFormatted,
+            resolution = metadata.resolution,
+            bitrate = metadata.bitrate,
+            url = mediaUrl
+        )
+
+        val itemParentId = if (parentId.startsWith("i_")) getParentContainerId(file, sharedDirectories) else parentId
+
+        return DidlItem(
+            id = "i_$encPath",
+            parentId = itemParentId,
+            title = file.name,
+            dateStr = modDate,
+            artist = metadata.artist,
+            album = metadata.album,
+            genre = metadata.genre,
+            upnpClass = upnpClass,
+            resources = listOf(resource)
+        )
     }
 
     private fun getParentContainerId(file: File, sharedDirectories: List<SharedDirectory>): String {
@@ -418,44 +424,6 @@ object ContentDirectoryXml {
         return "f_${encodePath(parent.absolutePath)}"
     }
 
-    private fun createContainerXml(
-        id: String,
-        parentId: String,
-        title: String,
-        childCount: Int
-    ): String {
-        val escapedTitle = escapeXml(title)
-        return """<container id="$id" parentID="$parentId" restricted="1" childCount="$childCount"><dc:title>$escapedTitle</dc:title><upnp:class>object.container.storageFolder</upnp:class></container>"""
-    }
-
-    private fun createItemXml(
-        id: String,
-        parentId: String,
-        title: String,
-        upnpClass: String,
-        mimeType: String,
-        dlnaProfile: String,
-        size: Long,
-        dateStr: String,
-        mediaUrl: String
-    ): String {
-        val escapedTitle = escapeXml(title)
-        val escapedUrl = escapeXml(mediaUrl)
-        val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
-        val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-
-        val sb = StringBuilder()
-        sb.append("""<item id="$id" parentID="$parentId" restricted="1">""")
-        sb.append("""<dc:title>$escapedTitle</dc:title>""")
-        sb.append("""<dc:date>$dateStr</dc:date>""")
-        sb.append("""<upnp:class>$upnpClass</upnp:class>""")
-        sb.append("""<res protocolInfo="$protocolInfo" size="$size">$escapedUrl</res>""")
-        sb.append("""<sec:dcmInfo>CREATIONDATE=0,FOLDER=0,CHILDCOUNT=0</sec:dcmInfo>""")
-        sb.append("""</item>""")
-
-        return sb.toString()
-    }
-
     fun encodePath(path: String): String {
         return try {
             URLEncoder.encode(path, "UTF-8")
@@ -470,14 +438,5 @@ object ContentDirectoryXml {
         } catch (_: Exception) {
             encoded
         }
-    }
-
-    private fun escapeXml(text: String): String {
-        return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
     }
 }
