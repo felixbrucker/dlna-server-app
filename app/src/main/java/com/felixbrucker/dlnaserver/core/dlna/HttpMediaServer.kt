@@ -15,7 +15,6 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
-import java.io.PrintWriter
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
@@ -192,12 +191,12 @@ class HttpMediaServer(
     }
 
     private fun handleConnectionManagerControl(): String {
-        val protocols = "http-get:*:video/mp4:DLNA.ORG_PN=HEVC_MP4_4K;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+        val protocols = "http-get:*:video/mp4:*," +
                 "http-get:*:video/x-matroska:*," +
                 "http-get:*:video/mpeg:*," +
-                "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
-                "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
-                "http-get:*:image/png:DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+                "http-get:*:audio/mpeg:*," +
+                "http-get:*:image/jpeg:*," +
+                "http-get:*:image/png:*," +
                 "http-get:*:*:*"
         return """<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
@@ -263,31 +262,33 @@ class HttpMediaServer(
         }
 
         val contentLength = end - start + 1
-        val statusLine = if (isPartial) "HTTP/1.1 206 Partial Content" else "HTTP/1.1 200 OK"
+        val statusLine = if (isPartial) "HTTP/1.1 206 Partial Content\r\n" else "HTTP/1.1 200 OK\r\n"
 
-        val printWriter = PrintWriter(outputStream)
-        printWriter.println(statusLine)
-        printWriter.println("Content-Type: $mimeType")
-        printWriter.println("Content-Length: $contentLength")
-        printWriter.println("Accept-Ranges: bytes")
-        printWriter.println("Connection: keep-alive")
-        printWriter.println("Pragma: no-cache")
-        printWriter.println("transferMode.dlna.org: Streaming")
-        printWriter.println("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000")
-        printWriter.println("realTimeInfo.dlna.org: DLNA.ORG_TLM=0")
+        val headerBuilder = StringBuilder()
+        headerBuilder.append(statusLine)
+        headerBuilder.append("Content-Type: $mimeType\r\n")
+        headerBuilder.append("Content-Length: $contentLength\r\n")
+        headerBuilder.append("Accept-Ranges: bytes\r\n")
+        headerBuilder.append("Connection: keep-alive\r\n")
+        headerBuilder.append("transferMode.dlna.org: Streaming\r\n")
+        headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n")
 
         if (isPartial) {
-            printWriter.println("Content-Range: bytes $start-$end/$fileLength")
+            headerBuilder.append("Content-Range: bytes $start-$end/$fileLength\r\n")
         }
-        printWriter.println()
-        printWriter.flush()
+        headerBuilder.append("\r\n")
+
+        outputStream.write(headerBuilder.toString().toByteArray(Charsets.UTF_8))
+        outputStream.flush()
 
         if (isHeadOnly) {
             return
         }
 
         FileInputStream(file).use { fileStream ->
-            fileStream.skip(start)
+            if (start > 0) {
+                fileStream.skip(start)
+            }
             val buffer = ByteArray(64 * 1024)
             var bytesToRead = contentLength
             while (bytesToRead > 0) {
@@ -303,33 +304,25 @@ class HttpMediaServer(
 
     private fun sendXmlResponse(outputStream: OutputStream, xml: String) {
         val bytes = xml.toByteArray(Charsets.UTF_8)
-        val printWriter = PrintWriter(outputStream)
-        printWriter.println("HTTP/1.1 200 OK")
-        printWriter.println("Content-Type: text/xml; charset=\"utf-8\"")
-        printWriter.println("Content-Length: ${bytes.size}")
-        printWriter.println("Connection: close")
-        printWriter.println()
-        printWriter.flush()
+        val header = "HTTP/1.1 200 OK\r\n" +
+                "Content-Type: text/xml; charset=\"utf-8\"\r\n" +
+                "Content-Length: ${bytes.size}\r\n" +
+                "Connection: close\r\n\r\n"
+        outputStream.write(header.toByteArray(Charsets.UTF_8))
         outputStream.write(bytes)
         outputStream.flush()
     }
 
     private fun sendNotFound(outputStream: OutputStream) {
-        val printWriter = PrintWriter(outputStream)
-        printWriter.println("HTTP/1.1 404 Not Found")
-        printWriter.println("Content-Length: 0")
-        printWriter.println("Connection: close")
-        printWriter.println()
-        printWriter.flush()
+        val header = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        outputStream.write(header.toByteArray(Charsets.UTF_8))
+        outputStream.flush()
     }
 
     private fun sendForbidden(outputStream: OutputStream) {
-        val printWriter = PrintWriter(outputStream)
-        printWriter.println("HTTP/1.1 403 Forbidden")
-        printWriter.println("Content-Length: 0")
-        printWriter.println("Connection: close")
-        printWriter.println()
-        printWriter.flush()
+        val header = "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        outputStream.write(header.toByteArray(Charsets.UTF_8))
+        outputStream.flush()
     }
 
     private fun extractTagValue(xml: String, tag: String): String? {

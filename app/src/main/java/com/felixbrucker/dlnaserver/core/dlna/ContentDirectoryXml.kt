@@ -442,20 +442,14 @@ object ContentDirectoryXml {
         val escapedTitle = escapeXml(title)
         val escapedUrl = escapeXml(mediaUrl)
         val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
-        val primaryProtocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+        val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
 
         val sb = StringBuilder()
         sb.append("""<item id="$id" parentID="$parentId" restricted="1">""")
         sb.append("""<dc:title>$escapedTitle</dc:title>""")
         sb.append("""<dc:date>$dateStr</dc:date>""")
         sb.append("""<upnp:class>$upnpClass</upnp:class>""")
-        sb.append("""<res protocolInfo="$primaryProtocolInfo" size="$size">$escapedUrl</res>""")
-
-        if (mimeType.startsWith("video/")) {
-            val genericProtocolInfo = "http-get:*:video/mpeg:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-            sb.append("""<res protocolInfo="$genericProtocolInfo" size="$size">$escapedUrl</res>""")
-        }
-
+        sb.append("""<res protocolInfo="$protocolInfo" size="$size">$escapedUrl</res>""")
         sb.append("""<sec:dcmInfo>CREATIONDATE=0,FOLDER=0,CHILDCOUNT=0</sec:dcmInfo>""")
         sb.append("""</item>""")
 
