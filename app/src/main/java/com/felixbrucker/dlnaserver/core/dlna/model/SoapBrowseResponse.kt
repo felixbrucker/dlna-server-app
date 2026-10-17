@@ -7,7 +7,7 @@ data class SoapBrowseResponse(
     val updateId: Int = 1
 ) {
     fun toXml(): String {
-        val escapedResult = escapeXml(didlLite.toXml())
+        val escapedResult = didlLite.toXml().escapeXml()
         return """<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
   <s:Body>
@@ -19,14 +19,5 @@ data class SoapBrowseResponse(
     </u:BrowseResponse>
   </s:Body>
 </s:Envelope>"""
-    }
-
-    private fun escapeXml(text: String): String {
-        return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
     }
 }

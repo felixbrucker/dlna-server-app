@@ -16,17 +16,8 @@ data class DidlResource(
         val bitrateAttr = bitrate?.let { " bitrate=\"$it\"" } ?: ""
         val sampleFreqAttr = sampleFrequency?.let { " sampleFrequency=\"$it\"" } ?: ""
         val channelsAttr = nrAudioChannels?.let { " nrAudioChannels=\"$it\"" } ?: ""
-        val escapedUrl = escapeXml(url)
+        val escapedUrl = url.escapeXml()
 
         return """<res protocolInfo="$protocolInfo" size="$size"$durationAttr$resolutionAttr$bitrateAttr$sampleFreqAttr$channelsAttr>$escapedUrl</res>"""
-    }
-
-    private fun escapeXml(text: String): String {
-        return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
     }
 }

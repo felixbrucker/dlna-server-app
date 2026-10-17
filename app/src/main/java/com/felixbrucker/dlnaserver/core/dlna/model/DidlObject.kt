@@ -13,18 +13,9 @@ data class DidlContainer(
     val upnpClass: String = "object.container.storageFolder"
 ) : DidlObject {
     override fun toXml(): String {
-        val escapedTitle = escapeXml(title)
+        val escapedTitle = title.escapeXml()
         val restrStr = if (restricted) "1" else "0"
         return """<container id="$id" parentID="$parentId" restricted="$restrStr" childCount="$childCount"><dc:title>$escapedTitle</dc:title><upnp:class>$upnpClass</upnp:class></container>"""
-    }
-
-    private fun escapeXml(text: String): String {
-        return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
     }
 }
 
@@ -43,15 +34,15 @@ data class DidlItem(
     override fun toXml(): String {
         val sb = StringBuilder()
         val restrStr = if (restricted) "1" else "0"
-        val escapedTitle = escapeXml(title)
+        val escapedTitle = title.escapeXml()
 
         sb.append("""<item id="$id" parentID="$parentId" restricted="$restrStr">""")
         sb.append("""<dc:title>$escapedTitle</dc:title>""")
 
         dateStr?.let { sb.append("""<dc:date>$it</dc:date>""") }
-        artist?.let { sb.append("""<upnp:artist>${escapeXml(it)}</upnp:artist>""") }
-        album?.let { sb.append("""<upnp:album>${escapeXml(it)}</upnp:album>""") }
-        genre?.let { sb.append("""<upnp:genre>${escapeXml(it)}</upnp:genre>""") }
+        artist?.let { sb.append("""<upnp:artist>${it.escapeXml()}</upnp:artist>""") }
+        album?.let { sb.append("""<upnp:album>${it.escapeXml()}</upnp:album>""") }
+        genre?.let { sb.append("""<upnp:genre>${it.escapeXml()}</upnp:genre>""") }
 
         sb.append("""<upnp:class>$upnpClass</upnp:class>""")
 
@@ -63,14 +54,5 @@ data class DidlItem(
         sb.append("""</item>""")
 
         return sb.toString()
-    }
-
-    private fun escapeXml(text: String): String {
-        return text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
     }
 }
