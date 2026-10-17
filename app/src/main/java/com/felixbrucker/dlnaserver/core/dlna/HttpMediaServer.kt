@@ -192,7 +192,7 @@ class HttpMediaServer(
     }
 
     private fun handleConnectionManagerControl(): String {
-        val protocols = "http-get:*:video/mp4:DLNA.ORG_PN=AVC_MP4_MP_SD;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+        val protocols = "http-get:*:video/mp4:DLNA.ORG_PN=HEVC_MP4_4K;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
                 "http-get:*:video/x-matroska:*," +
                 "http-get:*:video/mpeg:*," +
                 "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
@@ -271,8 +271,10 @@ class HttpMediaServer(
         printWriter.println("Content-Length: $contentLength")
         printWriter.println("Accept-Ranges: bytes")
         printWriter.println("Connection: keep-alive")
+        printWriter.println("Pragma: no-cache")
         printWriter.println("transferMode.dlna.org: Streaming")
         printWriter.println("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000")
+        printWriter.println("realTimeInfo.dlna.org: DLNA.ORG_TLM=0")
 
         if (isPartial) {
             printWriter.println("Content-Range: bytes $start-$end/$fileLength")
