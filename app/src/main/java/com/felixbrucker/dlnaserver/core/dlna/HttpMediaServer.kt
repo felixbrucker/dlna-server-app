@@ -194,7 +194,11 @@ class HttpMediaServer(
         val protocols = "http-get:*:video/mp4:*," +
                 "http-get:*:video/x-matroska:*," +
                 "http-get:*:video/mpeg:*," +
+                "http-get:*:video/avi:*," +
+                "http-get:*:video/quicktime:*," +
+                "http-get:*:video/webm:*," +
                 "http-get:*:audio/mpeg:*," +
+                "http-get:*:audio/flac:*," +
                 "http-get:*:image/jpeg:*," +
                 "http-get:*:image/png:*," +
                 "http-get:*:*:*"

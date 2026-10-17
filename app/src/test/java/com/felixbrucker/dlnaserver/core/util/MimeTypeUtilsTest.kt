@@ -48,6 +48,6 @@ class MimeTypeUtilsTest {
 
         val upnpClass = MimeTypeUtils.getUpnpClass(file)
 
-        assertEquals("object.item.videoItem.movie", upnpClass)
+        assertEquals("object.item.videoItem", upnpClass)
     }
 }
