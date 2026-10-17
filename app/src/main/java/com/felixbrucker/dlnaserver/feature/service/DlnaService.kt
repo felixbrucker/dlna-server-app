@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.felixbrucker.dlnaserver.MainActivity
+import com.felixbrucker.dlnaserver.R
 import com.felixbrucker.dlnaserver.core.data.repository.DlnaRepository
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import dagger.hilt.android.AndroidEntryPoint
@@ -125,7 +126,7 @@ class DlnaService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("DLNA Server Running")
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification_dlna)
             .setContentIntent(pendingOpenApp)
             .setOngoing(true)
             .addAction(
