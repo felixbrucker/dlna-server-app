@@ -345,6 +345,7 @@ object ContentDirectoryXml {
                                     id = "i_$encPath",
                                     parentId = objectID,
                                     title = file.name,
+                                    file = file,
                                     upnpClass = upnpClass,
                                     mimeType = mimeType,
                                     dlnaProfile = dlnaProfile,
@@ -374,6 +375,7 @@ object ContentDirectoryXml {
                         id = objectID,
                         parentId = parentId,
                         title = file.name,
+                        file = file,
                         upnpClass = upnpClass,
                         mimeType = mimeType,
                         dlnaProfile = dlnaProfile,
@@ -432,6 +434,7 @@ object ContentDirectoryXml {
         id: String,
         parentId: String,
         title: String,
+        file: File,
         upnpClass: String,
         mimeType: String,
         dlnaProfile: String,
@@ -442,7 +445,8 @@ object ContentDirectoryXml {
         val escapedTitle = escapeXml(title)
         val escapedUrl = escapeXml(mediaUrl)
         val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
-        val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+        val flags = "8D000000000000000000000000000000"
+        val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=$flags"
 
         val sb = StringBuilder()
         sb.append("""<item id="$id" parentID="$parentId" restricted="1">""")
@@ -450,6 +454,13 @@ object ContentDirectoryXml {
         sb.append("""<dc:date>$dateStr</dc:date>""")
         sb.append("""<upnp:class>$upnpClass</upnp:class>""")
         sb.append("""<res protocolInfo="$protocolInfo" size="$size">$escapedUrl</res>""")
+
+        val ext = file.extension.lowercase(Locale.ROOT)
+        if (ext == "mkv") {
+            val altProtocol = "http-get:*:video/mp4:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=$flags"
+            sb.append("""<res protocolInfo="$altProtocol" size="$size">$escapedUrl</res>""")
+        }
+
         sb.append("""<sec:dcmInfo>CREATIONDATE=0,FOLDER=0,CHILDCOUNT=0</sec:dcmInfo>""")
         sb.append("""</item>""")
 
