@@ -246,22 +246,31 @@ class HttpMediaServer(
         var isPartial = false
 
         if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
-            val ranges = rangeHeader.removePrefix("bytes=").split("-")
-            try {
-                if (ranges[0].isNotEmpty()) {
-                    start = ranges[0].toLong()
-                }
-                if (ranges.size > 1 && ranges[1].isNotEmpty()) {
-                    end = ranges[1].toLong()
-                }
-                if (start <= end && start < fileLength) {
-                    if (end >= fileLength) end = fileLength - 1
+            val rangeValue = rangeHeader.removePrefix("bytes=").trim()
+            if (rangeValue.startsWith("-")) {
+                // Suffix range: bytes=-N (e.g. last 128000 bytes for moov/Cues index)
+                val suffixLength = rangeValue.substring(1).toLongOrNull() ?: 0L
+                if (suffixLength in 1..fileLength) {
+                    start = maxOf(0L, fileLength - suffixLength)
+                    end = fileLength - 1
                     isPartial = true
                 }
-            } catch (_: Exception) {
-                start = 0
-                end = fileLength - 1
-                isPartial = false
+            } else {
+                val dashIdx = rangeValue.indexOf("-")
+                if (dashIdx != -1) {
+                    val startStr = rangeValue.substring(0, dashIdx).trim()
+                    val endStr = rangeValue.substring(dashIdx + 1).trim()
+                    if (startStr.isNotEmpty()) {
+                        start = startStr.toLongOrNull() ?: 0L
+                    }
+                    if (endStr.isNotEmpty()) {
+                        end = endStr.toLongOrNull() ?: (fileLength - 1)
+                    }
+                    if (start <= end && start < fileLength) {
+                        if (end >= fileLength) end = fileLength - 1
+                        isPartial = true
+                    }
+                }
             }
         }
 
