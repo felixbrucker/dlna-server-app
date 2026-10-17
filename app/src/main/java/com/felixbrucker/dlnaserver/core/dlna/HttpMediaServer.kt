@@ -191,8 +191,8 @@ class HttpMediaServer(
     }
 
     private fun handleConnectionManagerControl(): String {
-        val protocols = "http-get:*:video/mp4:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D000000000000000000000000000000," +
-                "http-get:*:video/x-matroska:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D000000000000000000000000000000," +
+        val protocols = "http-get:*:video/mp4:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
+                "http-get:*:video/x-matroska:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000," +
                 "http-get:*:video/mpeg:*," +
                 "http-get:*:video/avi:*," +
                 "http-get:*:video/quicktime:*," +
@@ -283,7 +283,7 @@ class HttpMediaServer(
         headerBuilder.append("Accept-Ranges: bytes\r\n")
         headerBuilder.append("Connection: keep-alive\r\n")
         headerBuilder.append("transferMode.dlna.org: Streaming\r\n")
-        headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D000000000000000000000000000000\r\n")
+        headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n")
 
         if (isPartial) {
             headerBuilder.append("Content-Range: bytes $start-$end/$fileLength\r\n")
