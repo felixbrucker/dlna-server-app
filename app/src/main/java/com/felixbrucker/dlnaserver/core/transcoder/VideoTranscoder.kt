@@ -38,14 +38,14 @@ object VideoTranscoder {
         return try {
             if (context != null) {
                 val configClass = try {
-                    Class.forName("com.arthenica.ffmpegkit.FFmpegKitConfig")
-                } catch (_: ClassNotFoundException) {
                     Class.forName("dev.ffmpegkit.FFmpegKitConfig")
+                } catch (_: ClassNotFoundException) {
+                    Class.forName("com.arthenica.ffmpegkit.FFmpegKitConfig")
                 }
                 val ffmpegKitClass = try {
-                    Class.forName("com.arthenica.ffmpegkit.FFmpegKit")
-                } catch (_: ClassNotFoundException) {
                     Class.forName("dev.ffmpegkit.FFmpegKit")
+                } catch (_: ClassNotFoundException) {
+                    Class.forName("com.arthenica.ffmpegkit.FFmpegKit")
                 }
 
                 val registerPipeMethod = configClass.getMethod("registerNewFFmpegPipe", Context::class.java)
