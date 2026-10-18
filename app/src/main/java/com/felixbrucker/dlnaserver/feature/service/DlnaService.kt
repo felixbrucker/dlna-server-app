@@ -43,7 +43,8 @@ class DlnaService : Service() {
                 val notification = buildNotification(
                     interfaceName = "Starting...",
                     ipAddress = "0.0.0.0",
-                    connectedDevices = 0
+                    connectedDevices = 0,
+                    transcodeInfo = dlnaRepository.serverInfo.value.transcodeDisplayInfo
                 )
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -86,7 +87,8 @@ class DlnaService : Service() {
                     val notification = buildNotification(
                         interfaceName = info.boundInterface,
                         ipAddress = info.ipAddress,
-                        connectedDevices = info.connectedDeviceCount
+                        connectedDevices = info.connectedDeviceCount,
+                        transcodeInfo = info.transcodeDisplayInfo
                     )
                     val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     manager.notify(NOTIFICATION_ID, notification)
@@ -101,7 +103,8 @@ class DlnaService : Service() {
     private fun buildNotification(
         interfaceName: String,
         ipAddress: String,
-        connectedDevices: Int
+        connectedDevices: Int,
+        transcodeInfo: String = "Off"
     ): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java)
         val pendingOpenApp = PendingIntent.getActivity(
@@ -121,7 +124,7 @@ class DlnaService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = "Interface: $interfaceName ($ipAddress) | Devices: $connectedDevices"
+        val contentText = "Interface: $interfaceName ($ipAddress) | Transcode: $transcodeInfo | Devices: $connectedDevices"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("DLNA Server Running")

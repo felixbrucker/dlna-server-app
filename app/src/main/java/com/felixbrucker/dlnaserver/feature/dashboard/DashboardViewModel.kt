@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.felixbrucker.dlnaserver.core.data.repository.DlnaRepository
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
+import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,7 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val dlnaRepository: DlnaRepository,
-    private val sharedDirectoryRepository: SharedDirectoryRepository
+    private val sharedDirectoryRepository: SharedDirectoryRepository,
+    private val appSettingsRepository: AppSettingsRepository
 ) : ViewModel() {
 
     private val _isFolderPickerOpen = MutableStateFlow(false)
@@ -28,14 +31,16 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         dlnaRepository.serverInfo,
         sharedDirectoryRepository.allDirectories,
+        appSettingsRepository.selectedTranscodeOption,
         _isFolderPickerOpen,
         _permissionGranted
-    ) { serverInfo, directories, isPickerOpen, hasPermission ->
+    ) { serverInfo, directories, transcodeOption, isPickerOpen, hasPermission ->
         DashboardUiState(
             serverInfo = serverInfo,
             sharedDirectories = directories,
             isFolderPickerOpen = isPickerOpen,
-            permissionGranted = hasPermission
+            permissionGranted = hasPermission,
+            selectedTranscodeOption = transcodeOption
         )
     }.stateIn(
         scope = viewModelScope,
@@ -66,6 +71,12 @@ class DashboardViewModel @Inject constructor(
     fun deleteDirectory(id: Long) {
         viewModelScope.launch {
             sharedDirectoryRepository.deleteDirectory(id)
+        }
+    }
+
+    fun selectTranscodeOption(option: TranscodeOption) {
+        viewModelScope.launch {
+            appSettingsRepository.setTranscodeOption(option)
         }
     }
 

@@ -1,6 +1,7 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -22,6 +23,7 @@ class HttpMediaServerTest {
     private lateinit var tempFile: File
     private lateinit var sharedDir: SharedDirectory
     private lateinit var server: HttpMediaServer
+    private var activeTranscodeOption: TranscodeOption = TranscodeOption.NONE
     private val testDispatcher = UnconfinedTestDispatcher()
     private val testScope = TestScope(testDispatcher)
 
@@ -36,7 +38,12 @@ class HttpMediaServerTest {
             path = tempFile.parentFile?.absolutePath ?: tempFile.absolutePath,
             displayName = "Test"
         )
-        server = HttpMediaServer(port = 8193) { listOf(sharedDir) }
+        activeTranscodeOption = TranscodeOption.NONE
+        server = HttpMediaServer(
+            port = 8193,
+            getTranscodeOption = { activeTranscodeOption },
+            getSharedDirectories = { listOf(sharedDir) }
+        )
         server.start("127.0.0.1", testScope)
     }
 
@@ -48,9 +55,24 @@ class HttpMediaServerTest {
         }
     }
 
+    private fun createConnectedSocket(port: Int = 8193): Socket {
+        var socket: Socket? = null
+        var attempts = 0
+        while (attempts < 20) {
+            try {
+                socket = Socket("127.0.0.1", port)
+                break
+            } catch (_: Exception) {
+                Thread.sleep(50)
+                attempts++
+            }
+        }
+        return socket ?: Socket("127.0.0.1", port)
+    }
+
     @Test
     fun testClientTrackedWhenRequestingMediaFile() = runTest {
-        val socket = Socket("127.0.0.1", 8193)
+        val socket = createConnectedSocket(8193)
         val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
         val encodedPath = ContentDirectoryXml.encodePath(tempFile.absolutePath)
 
@@ -68,5 +90,34 @@ class HttpMediaServerTest {
 
         assertTrue(statusLine.contains("200 OK"))
         assertEquals(1, server.connectedClients.value.size)
+    }
+
+    @Test
+    fun testTranscodedMediaFileResponse() = runTest {
+        activeTranscodeOption = TranscodeOption.X264
+        val socket = createConnectedSocket(8193)
+        val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
+        val encodedPath = ContentDirectoryXml.encodePath(tempFile.absolutePath)
+
+        writer.write("GET /media?path=$encodedPath HTTP/1.1\r\n")
+        writer.write("Host: 127.0.0.1:8193\r\n")
+        writer.write("Connection: close\r\n\r\n")
+        writer.flush()
+
+        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
+        val statusLine = reader.readLine() ?: ""
+        var contentType = ""
+        var line: String?
+        while (reader.readLine().also { line = it } != null) {
+            val currentLine = line ?: break
+            if (currentLine.isEmpty()) break
+            if (currentLine.lowercase().startsWith("content-type:")) {
+                contentType = currentLine
+            }
+        }
+        socket.close()
+
+        assertTrue(statusLine.contains("200 OK"))
+        assertTrue(contentType.contains("video/x-matroska"))
     }
 }

@@ -1,6 +1,8 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.transcoder.VideoTranscoder
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,7 @@ import java.util.concurrent.Executors
 
 class HttpMediaServer(
     private val port: Int = 8192,
+    private val getTranscodeOption: () -> TranscodeOption = { TranscodeOption.NONE },
     private val getSharedDirectories: () -> List<SharedDirectory>
 ) {
     private var serverSocket: ServerSocket? = null
@@ -245,6 +248,72 @@ class HttpMediaServer(
             return
         }
 
+        val transcodeOption = getTranscodeOption()
+        if (transcodeOption != TranscodeOption.NONE) {
+            val success = serveTranscodedFile(
+                outputStream = outputStream,
+                file = file,
+                option = transcodeOption,
+                isHeadOnly = isHeadOnly,
+                clientIp = clientIp
+            )
+            if (success) return
+        }
+
+        serveRawFile(
+            outputStream = outputStream,
+            file = file,
+            headers = headers,
+            isHeadOnly = isHeadOnly,
+            clientIp = clientIp
+        )
+    }
+
+    private fun serveTranscodedFile(
+        outputStream: OutputStream,
+        file: File,
+        option: TranscodeOption,
+        isHeadOnly: Boolean,
+        clientIp: String?
+    ): Boolean {
+        val sendHeaderAction = {
+            val headerBuilder = StringBuilder()
+            headerBuilder.append("HTTP/1.1 200 OK\r\n")
+            headerBuilder.append("Content-Type: video/x-matroska\r\n")
+            headerBuilder.append("Connection: keep-alive\r\n")
+            headerBuilder.append("transferMode.dlna.org: Streaming\r\n")
+            headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n")
+
+            outputStream.write(headerBuilder.toString().toByteArray(Charsets.UTF_8))
+            outputStream.flush()
+        }
+
+        if (isHeadOnly) {
+            sendHeaderAction()
+            return true
+        }
+
+        return VideoTranscoder.transcodeToStream(
+            inputFile = file,
+            option = option,
+            outputStream = outputStream,
+            onStart = sendHeaderAction,
+            onProgress = {
+                if (clientIp != null) {
+                    clientAccessTimes[clientIp] = System.currentTimeMillis()
+                    _connectedClients.value = clientAccessTimes.keys.toSet()
+                }
+            }
+        )
+    }
+
+    private fun serveRawFile(
+        outputStream: OutputStream,
+        file: File,
+        headers: Map<String, String>,
+        isHeadOnly: Boolean,
+        clientIp: String?
+    ) {
         val fileLength = file.length()
         val mimeType = MimeTypeUtils.getMimeType(file)
         val rangeHeader = headers["range"]

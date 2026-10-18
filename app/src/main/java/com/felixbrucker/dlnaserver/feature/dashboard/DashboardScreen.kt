@@ -29,6 +29,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.PermissionUtils
 import com.felixbrucker.dlnaserver.feature.dashboard.components.DirectoryList
 import com.felixbrucker.dlnaserver.feature.dashboard.components.FolderPickerDialog
@@ -94,6 +95,7 @@ fun DashboardScreen(
                 viewModel.toggleServer(context)
             }
         },
+        onSelectTranscodeOption = { viewModel.selectTranscodeOption(it) },
         onToggleDirectory = { viewModel.toggleDirectory(it) },
         onDeleteDirectory = { viewModel.deleteDirectory(it) },
         onOpenFolderPicker = {
@@ -120,6 +122,7 @@ fun DashboardScreen(
 private fun DashboardContent(
     uiState: DashboardUiState,
     onToggleServer: () -> Unit,
+    onSelectTranscodeOption: (TranscodeOption) -> Unit,
     onToggleDirectory: (SharedDirectory) -> Unit,
     onDeleteDirectory: (Long) -> Unit,
     onOpenFolderPicker: () -> Unit,
@@ -141,7 +144,13 @@ private fun DashboardContent(
                 PermissionCard(onRequestPermission = onRequestPermissions)
                 Spacer(modifier = Modifier.height(16.dp))
             }
-            ServerStatusCard(serverInfo = uiState.serverInfo, onToggleServer = onToggleServer)
+            ServerStatusCard(
+                serverInfo = uiState.serverInfo,
+                selectedTranscodeOption = uiState.selectedTranscodeOption,
+                availableTranscodeOptions = uiState.availableTranscodeOptions,
+                onToggleServer = onToggleServer,
+                onSelectTranscodeOption = onSelectTranscodeOption
+            )
             Spacer(modifier = Modifier.height(16.dp))
             SectionHeader()
             Spacer(modifier = Modifier.height(8.dp))

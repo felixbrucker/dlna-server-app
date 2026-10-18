@@ -3,6 +3,7 @@ package com.felixbrucker.dlnaserver.core.data.di
 import com.felixbrucker.dlnaserver.core.data.repository.DlnaRepository
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.database.dao.SharedDirectoryDao
+import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.dlna.DlnaServerEngine
 import dagger.Module
 import dagger.Provides
@@ -26,8 +27,9 @@ object DataModule {
     @Singleton
     fun provideDlnaRepository(
         dlnaServerEngine: DlnaServerEngine,
-        sharedDirectoryRepository: SharedDirectoryRepository
+        sharedDirectoryRepository: SharedDirectoryRepository,
+        appSettingsRepository: AppSettingsRepository
     ): DlnaRepository {
-        return DlnaRepository(dlnaServerEngine, sharedDirectoryRepository)
+        return DlnaRepository(dlnaServerEngine, sharedDirectoryRepository, appSettingsRepository)
     }
 }

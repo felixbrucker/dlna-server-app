@@ -25,12 +25,22 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuBoxScope
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -41,11 +51,16 @@ import androidx.compose.ui.unit.sp
 import com.felixbrucker.dlnaserver.core.designsystem.theme.StatusGreen
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 
 @Composable
 fun ServerStatusCard(
     serverInfo: DlnaServerInfo,
+    selectedTranscodeOption: TranscodeOption,
+    availableTranscodeOptions: List<TranscodeOption>,
     onToggleServer: () -> Unit,
+    onSelectTranscodeOption: (TranscodeOption) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -56,6 +71,12 @@ fun ServerStatusCard(
             ServerStatusHeader(serverInfo = serverInfo, onToggleServer = onToggleServer)
             Spacer(modifier = Modifier.height(12.dp))
             ServerNetworkDetails(serverInfo = serverInfo)
+            Spacer(modifier = Modifier.height(12.dp))
+            TranscodeSelectorSection(
+                selectedOption = selectedTranscodeOption,
+                options = availableTranscodeOptions,
+                onSelectOption = onSelectTranscodeOption
+            )
         }
     }
 }
@@ -142,6 +163,8 @@ private fun ServerNetworkDetails(serverInfo: DlnaServerInfo) {
     Column {
         NetworkInterfaceRow(boundInterface = serverInfo.boundInterface, ipAddress = serverInfo.ipAddress)
         Spacer(modifier = Modifier.height(4.dp))
+        TranscodeStatusRow(transcodeInfo = serverInfo.transcodeDisplayInfo)
+        Spacer(modifier = Modifier.height(4.dp))
         ConnectedDevicesRow(count = serverInfo.connectedDeviceCount)
     }
 }
@@ -165,11 +188,120 @@ private fun NetworkInterfaceRow(boundInterface: String, ipAddress: String) {
 }
 
 @Composable
+private fun TranscodeStatusRow(transcodeInfo: String) {
+    Text(
+        text = "Transcoding: $transcodeInfo",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
 private fun ConnectedDevicesRow(count: Int) {
     Text(
         text = "Connected devices: $count",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.outline
+    )
+}
+
+@Composable
+private fun TranscodeSelectorSection(
+    selectedOption: TranscodeOption,
+    options: List<TranscodeOption>,
+    onSelectOption: (TranscodeOption) -> Unit
+) {
+    Column {
+        TranscodeHeaderLabel()
+        Spacer(modifier = Modifier.height(4.dp))
+        TranscodeDropdownMenu(
+            selectedOption = selectedOption,
+            options = options,
+            onSelectOption = onSelectOption
+        )
+    }
+}
+
+@Composable
+private fun TranscodeHeaderLabel() {
+    Text(
+        text = "Transcoding Preset",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TranscodeDropdownMenu(
+    selectedOption: TranscodeOption,
+    options: List<TranscodeOption>,
+    onSelectOption: (TranscodeOption) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        TranscodeMenuAnchor(
+            selectedOption = selectedOption,
+            expanded = expanded,
+            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
+        )
+        TranscodeDropdownItems(
+            expanded = expanded,
+            options = options,
+            onDismiss = { expanded = false },
+            onSelect = {
+                onSelectOption(it)
+                expanded = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TranscodeMenuAnchor(
+    selectedOption: TranscodeOption,
+    expanded: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val hasHw = remember(selectedOption) { HardwareCodecUtils.hasHardwareEncoderSupport(selectedOption) }
+    OutlinedTextField(
+        value = selectedOption.getDisplayLabel(hasHw),
+        onValueChange = {},
+        readOnly = true,
+        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+        modifier = modifier.fillMaxWidth(),
+        textStyle = MaterialTheme.typography.bodyMedium
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExposedDropdownMenuBoxScope.TranscodeDropdownItems(
+    expanded: Boolean,
+    options: List<TranscodeOption>,
+    onDismiss: () -> Unit,
+    onSelect: (TranscodeOption) -> Unit
+) {
+    ExposedDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        options.forEach { option ->
+            TranscodeMenuItem(option = option, onSelect = onSelect)
+        }
+    }
+}
+
+@Composable
+private fun TranscodeMenuItem(
+    option: TranscodeOption,
+    onSelect: (TranscodeOption) -> Unit
+) {
+    val hasHw = remember(option) { HardwareCodecUtils.hasHardwareEncoderSupport(option) }
+    DropdownMenuItem(
+        text = { Text(text = option.getDisplayLabel(hasHw)) },
+        onClick = { onSelect(option) }
     )
 }
 
