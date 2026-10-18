@@ -4,6 +4,7 @@ import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -48,11 +49,12 @@ class VideoTranscoderTest {
     }
 
     @Test
-    fun testTranscodeToStreamWithOptionFallbackStreamsData() {
+    fun testTranscodeToStreamFailsWithoutRawFallback() {
         val outputStream = ByteArrayOutputStream()
 
-        VideoTranscoder.transcodeToStream(tempFile, TranscodeOption.X264, outputStream, startSeconds = 0L, hasHwSupport = false)
+        val success = VideoTranscoder.transcodeToStream(tempFile, TranscodeOption.X264, outputStream, startSeconds = 0L, hasHwSupport = false)
 
-        assertArrayEquals(byteArrayOf(1, 2, 3, 4, 5), outputStream.toByteArray())
+        assertFalse(success)
+        assertEquals(0, outputStream.toByteArray().size)
     }
 }

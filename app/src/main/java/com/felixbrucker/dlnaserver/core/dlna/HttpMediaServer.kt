@@ -257,7 +257,7 @@ class HttpMediaServer(
         val startSeconds = parseStartSeconds(headers, uri)
 
         if (transcodeOption != TranscodeOption.NONE) {
-            val success = serveTranscodedFile(
+            serveTranscodedFile(
                 outputStream = outputStream,
                 file = file,
                 option = transcodeOption,
@@ -265,7 +265,7 @@ class HttpMediaServer(
                 isHeadOnly = isHeadOnly,
                 clientIp = clientIp
             )
-            if (success) return
+            return
         }
 
         serveRawFile(

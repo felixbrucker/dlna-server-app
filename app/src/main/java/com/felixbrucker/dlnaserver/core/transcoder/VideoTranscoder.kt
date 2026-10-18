@@ -3,6 +3,7 @@ package com.felixbrucker.dlnaserver.core.transcoder
 import android.content.Context
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.FFmpegKitConfig
+import com.arthenica.ffmpegkit.ReturnCode
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import java.io.File
@@ -38,41 +39,46 @@ object VideoTranscoder {
         }
 
         return try {
+            val pipePath = if (context != null) {
+                FFmpegKitConfig.registerNewFFmpegPipe(context)
+            } else {
+                "pipe:1"
+            }
+
+            val argumentsList = mutableListOf<String>().apply {
+                add("-hide_banner")
+                add("-loglevel")
+                add("error")
+                if (startSeconds > 0) {
+                    add("-ss")
+                    add(startSeconds.toString())
+                }
+                add("-i")
+                add(inputFile.absolutePath)
+                add("-map")
+                add("0:v:0")
+                add("-map")
+                add("0:a?")
+                add("-map")
+                add("0:s?")
+                add("-c:v")
+                add(videoEncoder)
+                add("-c:a")
+                add("copy")
+                add("-c:s")
+                add("copy")
+                add("-flush_packets")
+                add("1")
+                add("-f")
+                add("matroska")
+                add("-live")
+                add("true")
+                add(pipePath)
+            }.toTypedArray()
+
+            onStart?.invoke()
+
             if (context != null) {
-                val pipePath = FFmpegKitConfig.registerNewFFmpegPipe(context)
-                val argumentsList = mutableListOf<String>().apply {
-                    add("-hide_banner")
-                    add("-loglevel")
-                    add("error")
-                    if (startSeconds > 0) {
-                        add("-ss")
-                        add(startSeconds.toString())
-                    }
-                    add("-i")
-                    add(inputFile.absolutePath)
-                    add("-map")
-                    add("0:v:0")
-                    add("-map")
-                    add("0:a?")
-                    add("-map")
-                    add("0:s?")
-                    add("-c:v")
-                    add(videoEncoder)
-                    add("-c:a")
-                    add("copy")
-                    add("-c:s")
-                    add("copy")
-                    add("-flush_packets")
-                    add("1")
-                    add("-f")
-                    add("matroska")
-                    add("-live")
-                    add("true")
-                    add(pipePath)
-                }.toTypedArray()
-
-                onStart?.invoke()
-
                 val session = FFmpegKit.executeWithArgumentsAsync(argumentsList) {
                     FFmpegKitConfig.closeFFmpegPipe(pipePath)
                 }
@@ -102,16 +108,15 @@ object VideoTranscoder {
 
                 session?.cancel()
                 FFmpegKitConfig.closeFFmpegPipe(pipePath)
-                true
             } else {
-                onStart?.invoke()
-                streamRawFile(inputFile, outputStream, startSeconds = startSeconds, onProgress = onProgress)
-                true
+                val session = FFmpegKit.executeWithArguments(argumentsList)
+                if (session == null || !ReturnCode.isSuccess(session.returnCode)) {
+                    return false
+                }
             }
-        } catch (_: Throwable) {
-            onStart?.invoke()
-            streamRawFile(inputFile, outputStream, startSeconds = startSeconds, onProgress = onProgress)
             true
+        } catch (_: Throwable) {
+            false
         }
     }
 
