@@ -40,12 +40,40 @@ object VideoTranscoder {
         return try {
             if (context != null) {
                 val pipePath = FFmpegKitConfig.registerNewFFmpegPipe(context)
-                val seekArg = if (startSeconds > 0) "-ss $startSeconds " else ""
-                val command = "-hide_banner -loglevel error $seekArg-i \"${inputFile.absolutePath}\" -map 0:v:0 -map 0:a? -map 0:s? -c:v $videoEncoder -c:a copy -c:s copy -flush_packets 1 -f matroska -live true \"$pipePath\""
+                val argumentsList = mutableListOf<String>().apply {
+                    add("-hide_banner")
+                    add("-loglevel")
+                    add("error")
+                    if (startSeconds > 0) {
+                        add("-ss")
+                        add(startSeconds.toString())
+                    }
+                    add("-i")
+                    add(inputFile.absolutePath)
+                    add("-map")
+                    add("0:v:0")
+                    add("-map")
+                    add("0:a?")
+                    add("-map")
+                    add("0:s?")
+                    add("-c:v")
+                    add(videoEncoder)
+                    add("-c:a")
+                    add("copy")
+                    add("-c:s")
+                    add("copy")
+                    add("-flush_packets")
+                    add("1")
+                    add("-f")
+                    add("matroska")
+                    add("-live")
+                    add("true")
+                    add(pipePath)
+                }.toTypedArray()
 
                 onStart?.invoke()
 
-                val session = FFmpegKit.executeAsync(command) {
+                val session = FFmpegKit.executeWithArgumentsAsync(argumentsList) {
                     FFmpegKitConfig.closeFFmpegPipe(pipePath)
                 }
 
