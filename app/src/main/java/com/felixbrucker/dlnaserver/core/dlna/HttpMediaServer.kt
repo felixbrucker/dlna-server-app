@@ -155,7 +155,14 @@ class HttpMediaServer(
                     val pathParam = uri.substringAfter("path=", "")
                     if (pathParam.isNotEmpty()) {
                         val filePath = ContentDirectoryXml.decodePath(pathParam)
-                        serveMediaFile(socket, outputStream, File(filePath), headers, isHeadOnly = method == "HEAD")
+                        serveMediaFile(
+                            socket = socket,
+                            outputStream = outputStream,
+                            file = File(filePath),
+                            headers = headers,
+                            isHeadOnly = method == "HEAD",
+                            clientIp = clientIp
+                        )
                     } else {
                         sendNotFound(outputStream)
                     }
@@ -218,7 +225,8 @@ class HttpMediaServer(
         outputStream: OutputStream,
         file: File,
         headers: Map<String, String>,
-        isHeadOnly: Boolean = false
+        isHeadOnly: Boolean = false,
+        clientIp: String? = null
     ) {
         if (!file.exists() || !file.isFile) {
             sendNotFound(outputStream)
@@ -303,6 +311,7 @@ class HttpMediaServer(
             }
             val buffer = ByteArray(64 * 1024)
             var bytesToRead = contentLength
+            var lastTimeUpdate = System.currentTimeMillis()
             while (bytesToRead > 0) {
                 val readLength = minOf(buffer.size.toLong(), bytesToRead).toInt()
                 val read = fileStream.read(buffer, 0, readLength)
@@ -310,6 +319,20 @@ class HttpMediaServer(
                 outputStream.write(buffer, 0, read)
                 outputStream.flush()
                 bytesToRead -= read
+
+                if (clientIp != null) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastTimeUpdate >= 5000) {
+                        clientAccessTimes[clientIp] = now
+                        _connectedClients.value = clientAccessTimes.keys.toSet()
+                        lastTimeUpdate = now
+                    }
+                }
+            }
+            if (clientIp != null) {
+                val now = System.currentTimeMillis()
+                clientAccessTimes[clientIp] = now
+                _connectedClients.value = clientAccessTimes.keys.toSet()
             }
         }
     }
