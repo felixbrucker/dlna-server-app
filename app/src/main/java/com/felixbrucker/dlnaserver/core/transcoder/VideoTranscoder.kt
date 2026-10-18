@@ -35,82 +35,66 @@ object VideoTranscoder {
             option.ffmpegEncoderSw ?: "copy"
         }
 
-        val ffmpegBin = FFmpegBinaryManager.getExecutable(context)?.absolutePath ?: "ffmpeg"
-
-        val command = mutableListOf<String>()
-        command.add(ffmpegBin)
-        command.add("-hide_banner")
-        command.add("-loglevel")
-        command.add("error")
-
-        if (startSeconds > 0) {
-            command.add("-ss")
-            command.add(startSeconds.toString())
-        }
-
-        command.add("-i")
-        command.add(inputFile.absolutePath)
-        command.add("-map")
-        command.add("0:v:0")
-        command.add("-map")
-        command.add("0:a?")
-        command.add("-map")
-        command.add("0:s?")
-        command.add("-c:v")
-        command.add(videoEncoder)
-        command.add("-c:a")
-        command.add("copy")
-        command.add("-c:s")
-        command.add("copy")
-        command.add("-f")
-        command.add("matroska")
-        command.add("pipe:1")
-
-        var process: Process? = null
         return try {
-            val processBuilder = ProcessBuilder(command)
-            process = processBuilder.start()
-
-            val processErrorStream = process.errorStream
-            val errorGobbler = Thread {
-                try {
-                    val errBuffer = ByteArray(4096)
-                    while (processErrorStream.read(errBuffer) != -1) {
-                    }
-                } catch (_: Throwable) {
+            if (context != null) {
+                val configClass = try {
+                    Class.forName("com.arthenica.ffmpegkit.FFmpegKitConfig")
+                } catch (_: ClassNotFoundException) {
+                    Class.forName("dev.ffmpegkit.FFmpegKitConfig")
                 }
-            }
-            errorGobbler.isDaemon = true
-            errorGobbler.start()
+                val ffmpegKitClass = try {
+                    Class.forName("com.arthenica.ffmpegkit.FFmpegKit")
+                } catch (_: ClassNotFoundException) {
+                    Class.forName("dev.ffmpegkit.FFmpegKit")
+                }
 
-            onStart?.invoke()
+                val registerPipeMethod = configClass.getMethod("registerNewFFmpegPipe", Context::class.java)
+                val pipePath = registerPipeMethod.invoke(null, context) as String
 
-            val processInputStream = process.inputStream
-            val buffer = ByteArray(64 * 1024)
-            var bytesRead: Int
-            var lastUpdate = System.currentTimeMillis()
+                val closePipeMethod = configClass.getMethod("closeFFmpegPipe", String::class.java)
 
-            while (processInputStream.read(buffer).also { bytesRead = it } != -1) {
-                if (bytesRead > 0) {
-                    outputStream.write(buffer, 0, bytesRead)
-                    outputStream.flush()
+                val seekArg = if (startSeconds > 0) "-ss $startSeconds " else ""
+                val command = "-hide_banner -loglevel error $seekArg-i \"${inputFile.absolutePath}\" -map 0:v:0 -map 0:a? -map 0:s? -c:v $videoEncoder -c:a copy -c:s copy -f matroska \"$pipePath\""
 
-                    val now = System.currentTimeMillis()
-                    if (now - lastUpdate >= 5000) {
+                onStart?.invoke()
+
+                val executeAsyncMethod = ffmpegKitClass.methods.firstOrNull { it.name == "executeAsync" }
+                executeAsyncMethod?.invoke(null, command, null)
+
+                val pipeFile = File(pipePath)
+                if (pipeFile.exists()) {
+                    FileInputStream(pipeFile).use { pipeStream ->
+                        val buffer = ByteArray(64 * 1024)
+                        var bytesRead: Int
+                        var lastUpdate = System.currentTimeMillis()
+
+                        while (pipeStream.read(buffer).also { bytesRead = it } != -1) {
+                            if (bytesRead > 0) {
+                                outputStream.write(buffer, 0, bytesRead)
+                                outputStream.flush()
+
+                                val now = System.currentTimeMillis()
+                                if (now - lastUpdate >= 5000) {
+                                    onProgress?.invoke()
+                                    lastUpdate = now
+                                }
+                            }
+                        }
                         onProgress?.invoke()
-                        lastUpdate = now
                     }
                 }
+
+                closePipeMethod.invoke(null, pipePath)
+                true
+            } else {
+                onStart?.invoke()
+                streamRawFile(inputFile, outputStream, startSeconds = startSeconds, onProgress = onProgress)
+                true
             }
-            onProgress?.invoke()
-            process.waitFor()
-            true
         } catch (_: Throwable) {
             onStart?.invoke()
             streamRawFile(inputFile, outputStream, startSeconds = startSeconds, onProgress = onProgress)
             true
-        } finally {
-            process?.destroy()
         }
     }
 

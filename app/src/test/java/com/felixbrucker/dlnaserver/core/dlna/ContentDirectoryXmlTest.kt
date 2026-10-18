@@ -3,6 +3,7 @@ package com.felixbrucker.dlnaserver.core.dlna
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class ContentDirectoryXmlTest {
 
@@ -34,6 +35,25 @@ class ContentDirectoryXmlTest {
 
         assertTrue(xml.contains("&lt;container id=&quot;f_"))
         assertTrue(xml.contains("Temp Folder"))
+    }
+
+    @Test
+    fun testBuildBrowseResponseWithTranscodeActiveUsesMkvProfile() {
+        val tempFile = File.createTempFile("video_sample", ".mp4").apply { deleteOnExit() }
+        val sharedDir = SharedDirectory(id = 1, path = tempFile.parent ?: tempFile.absolutePath, displayName = "Videos")
+
+        val xml = ContentDirectoryXml.buildBrowseResponse(
+            objectID = "i_${ContentDirectoryXml.encodePath(tempFile.absolutePath)}",
+            browseFlag = "BrowseMetadata",
+            startingIndex = 0,
+            requestedCount = 0,
+            sharedDirectories = listOf(sharedDir),
+            baseUrl = "http://192.168.1.100:8192",
+            isTranscodeActive = true
+        )
+
+        assertTrue(xml.contains("video/x-matroska"))
+        assertTrue(xml.contains("DLNA.ORG_PN=MATROSKA"))
     }
 
     @Test
