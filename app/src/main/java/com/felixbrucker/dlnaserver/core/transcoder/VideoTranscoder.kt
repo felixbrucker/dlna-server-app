@@ -1,6 +1,8 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
 import android.content.Context
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.FFmpegKitConfig
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import java.io.File
@@ -37,29 +39,15 @@ object VideoTranscoder {
 
         return try {
             if (context != null) {
-                val configClass = try {
-                    Class.forName("dev.ffmpegkit.FFmpegKitConfig")
-                } catch (_: ClassNotFoundException) {
-                    Class.forName("com.arthenica.ffmpegkit.FFmpegKitConfig")
-                }
-                val ffmpegKitClass = try {
-                    Class.forName("dev.ffmpegkit.FFmpegKit")
-                } catch (_: ClassNotFoundException) {
-                    Class.forName("com.arthenica.ffmpegkit.FFmpegKit")
-                }
-
-                val registerPipeMethod = configClass.getMethod("registerNewFFmpegPipe", Context::class.java)
-                val pipePath = registerPipeMethod.invoke(null, context) as String
-
-                val closePipeMethod = configClass.getMethod("closeFFmpegPipe", String::class.java)
-
+                val pipePath = FFmpegKitConfig.registerNewFFmpegPipe(context)
                 val seekArg = if (startSeconds > 0) "-ss $startSeconds " else ""
                 val command = "-hide_banner -loglevel error $seekArg-i \"${inputFile.absolutePath}\" -map 0:v:0 -map 0:a? -map 0:s? -c:v $videoEncoder -c:a copy -c:s copy -f matroska \"$pipePath\""
 
                 onStart?.invoke()
 
-                val executeAsyncMethod = ffmpegKitClass.methods.firstOrNull { it.name == "executeAsync" }
-                executeAsyncMethod?.invoke(null, command, null)
+                val session = FFmpegKit.executeAsync(command) {
+                    FFmpegKitConfig.closeFFmpegPipe(pipePath)
+                }
 
                 val pipeFile = File(pipePath)
                 if (pipeFile.exists()) {
@@ -84,7 +72,8 @@ object VideoTranscoder {
                     }
                 }
 
-                closePipeMethod.invoke(null, pipePath)
+                session?.cancel()
+                FFmpegKitConfig.closeFFmpegPipe(pipePath)
                 true
             } else {
                 onStart?.invoke()
