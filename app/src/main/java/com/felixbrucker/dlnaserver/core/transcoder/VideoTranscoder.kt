@@ -41,7 +41,7 @@ object VideoTranscoder {
             if (context != null) {
                 val pipePath = FFmpegKitConfig.registerNewFFmpegPipe(context)
                 val seekArg = if (startSeconds > 0) "-ss $startSeconds " else ""
-                val command = "-hide_banner -loglevel error $seekArg-i \"${inputFile.absolutePath}\" -map 0:v:0 -map 0:a? -map 0:s? -c:v $videoEncoder -c:a copy -c:s copy -f matroska -live true \"$pipePath\""
+                val command = "-hide_banner -loglevel error $seekArg-i \"${inputFile.absolutePath}\" -map 0:v:0 -map 0:a? -map 0:s? -c:v $videoEncoder -c:a copy -c:s copy -flush_packets 1 -f matroska -live true \"$pipePath\""
 
                 onStart?.invoke()
 

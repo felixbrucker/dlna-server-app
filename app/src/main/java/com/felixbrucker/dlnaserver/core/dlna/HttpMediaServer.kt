@@ -289,6 +289,7 @@ class HttpMediaServer(
             val headerBuilder = StringBuilder()
             headerBuilder.append("HTTP/1.1 200 OK\r\n")
             headerBuilder.append("Content-Type: video/x-matroska\r\n")
+            headerBuilder.append("Accept-Ranges: none\r\n")
             headerBuilder.append("Connection: keep-alive\r\n")
             headerBuilder.append("transferMode.dlna.org: Streaming\r\n")
             headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n")
