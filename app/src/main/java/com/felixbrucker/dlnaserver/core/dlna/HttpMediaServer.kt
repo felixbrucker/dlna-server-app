@@ -191,13 +191,16 @@ class HttpMediaServer(
         val requestedCount = extractTagValue(body, "RequestedCount")?.toIntOrNull() ?: 0
 
         val sharedDirs = getSharedDirectories()
+        val isTranscodeActive = getTranscodeOption() != TranscodeOption.NONE
+
         return ContentDirectoryXml.buildBrowseResponse(
             objectID = objectId,
             browseFlag = browseFlag,
             startingIndex = startingIndex,
             requestedCount = requestedCount,
             sharedDirectories = sharedDirs,
-            baseUrl = baseUrl
+            baseUrl = baseUrl,
+            isTranscodeActive = isTranscodeActive
         )
     }
 
@@ -288,7 +291,7 @@ class HttpMediaServer(
             headerBuilder.append("Content-Type: video/x-matroska\r\n")
             headerBuilder.append("Connection: keep-alive\r\n")
             headerBuilder.append("transferMode.dlna.org: Streaming\r\n")
-            headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n")
+            headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n")
 
             outputStream.write(headerBuilder.toString().toByteArray(Charsets.UTF_8))
             outputStream.flush()
