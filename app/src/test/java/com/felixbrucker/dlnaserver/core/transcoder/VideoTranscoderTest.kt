@@ -51,7 +51,7 @@ class VideoTranscoderTest {
     fun testTranscodeToStreamWithOptionFallbackStreamsData() {
         val outputStream = ByteArrayOutputStream()
 
-        VideoTranscoder.transcodeToStream(tempFile, TranscodeOption.X264, outputStream, hasHwSupport = false)
+        VideoTranscoder.transcodeToStream(tempFile, TranscodeOption.X264, outputStream, startSeconds = 0L, hasHwSupport = false)
 
         assertArrayEquals(byteArrayOf(1, 2, 3, 4, 5), outputStream.toByteArray())
     }

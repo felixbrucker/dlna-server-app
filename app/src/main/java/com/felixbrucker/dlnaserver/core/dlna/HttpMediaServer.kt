@@ -155,7 +155,7 @@ class HttpMediaServer(
                     sendXmlResponse(outputStream, handleConnectionManagerControl())
                 }
                 uri.startsWith("/media") -> {
-                    val pathParam = uri.substringAfter("path=", "")
+                    val pathParam = uri.substringAfter("path=", "").substringBefore("&")
                     if (pathParam.isNotEmpty()) {
                         val filePath = ContentDirectoryXml.decodePath(pathParam)
                         serveMediaFile(
@@ -163,6 +163,7 @@ class HttpMediaServer(
                             outputStream = outputStream,
                             file = File(filePath),
                             headers = headers,
+                            uri = uri,
                             isHeadOnly = method == "HEAD",
                             clientIp = clientIp
                         )
@@ -228,6 +229,7 @@ class HttpMediaServer(
         outputStream: OutputStream,
         file: File,
         headers: Map<String, String>,
+        uri: String,
         isHeadOnly: Boolean = false,
         clientIp: String? = null
     ) {
@@ -249,11 +251,14 @@ class HttpMediaServer(
         }
 
         val transcodeOption = getTranscodeOption()
+        val startSeconds = parseStartSeconds(headers, uri)
+
         if (transcodeOption != TranscodeOption.NONE) {
             val success = serveTranscodedFile(
                 outputStream = outputStream,
                 file = file,
                 option = transcodeOption,
+                startSeconds = startSeconds,
                 isHeadOnly = isHeadOnly,
                 clientIp = clientIp
             )
@@ -273,6 +278,7 @@ class HttpMediaServer(
         outputStream: OutputStream,
         file: File,
         option: TranscodeOption,
+        startSeconds: Long,
         isHeadOnly: Boolean,
         clientIp: String?
     ): Boolean {
@@ -297,6 +303,7 @@ class HttpMediaServer(
             inputFile = file,
             option = option,
             outputStream = outputStream,
+            startSeconds = startSeconds,
             onStart = sendHeaderAction,
             onProgress = {
                 if (clientIp != null) {
@@ -404,6 +411,38 @@ class HttpMediaServer(
                 _connectedClients.value = clientAccessTimes.keys.toSet()
             }
         }
+    }
+
+    private fun parseStartSeconds(headers: Map<String, String>, uri: String): Long {
+        val timeSeekHeader = headers["timeseekrange.dlna.org"]
+        if (timeSeekHeader != null && timeSeekHeader.startsWith("npt=")) {
+            val nptValue = timeSeekHeader.removePrefix("npt=").substringBefore("-").trim()
+            val seconds = parseNptToSeconds(nptValue)
+            if (seconds > 0) return seconds
+        }
+
+        val uriTime = uri.substringAfter("time=", "").substringBefore("&")
+            .ifEmpty { uri.substringAfter("startTime=", "").substringBefore("&") }
+            .ifEmpty { uri.substringAfter("start=", "").substringBefore("&") }
+        if (uriTime.isNotEmpty()) {
+            val parsed = uriTime.toLongOrNull() ?: parseNptToSeconds(uriTime)
+            if (parsed > 0) return parsed
+        }
+
+        return 0L
+    }
+
+    private fun parseNptToSeconds(npt: String): Long {
+        if (npt.contains(":")) {
+            val parts = npt.split(":")
+            if (parts.size == 3) {
+                val hours = parts[0].toLongOrNull() ?: 0L
+                val minutes = parts[1].toLongOrNull() ?: 0L
+                val secs = parts[2].substringBefore(".").toLongOrNull() ?: 0L
+                return hours * 3600 + minutes * 60 + secs
+            }
+        }
+        return npt.substringBefore(".").toLongOrNull() ?: 0L
     }
 
     private fun sendXmlResponse(outputStream: OutputStream, xml: String) {

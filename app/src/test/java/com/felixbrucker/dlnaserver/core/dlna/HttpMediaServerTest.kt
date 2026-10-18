@@ -120,4 +120,27 @@ class HttpMediaServerTest {
         assertTrue(statusLine.contains("200 OK"))
         assertTrue(contentType.contains("video/x-matroska"))
     }
+
+    @Test
+    fun testTranscodedMediaFileWithSeekHeader() = runTest {
+        activeTranscodeOption = TranscodeOption.X264
+        val socket = createConnectedSocket(8193)
+        val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
+        val encodedPath = ContentDirectoryXml.encodePath(tempFile.absolutePath)
+
+        writer.write("GET /media?path=$encodedPath HTTP/1.1\r\n")
+        writer.write("Host: 127.0.0.1:8193\r\n")
+        writer.write("TimeSeekRange.dlna.org: npt=00:01:30\r\n")
+        writer.write("Connection: close\r\n\r\n")
+        writer.flush()
+
+        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
+        val statusLine = reader.readLine() ?: ""
+        val buffer = CharArray(1024)
+        while (reader.read(buffer) != -1) {
+        }
+        socket.close()
+
+        assertTrue(statusLine.contains("200 OK"))
+    }
 }
