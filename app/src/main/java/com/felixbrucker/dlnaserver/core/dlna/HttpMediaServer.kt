@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import android.content.Context
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.transcoder.VideoTranscoder
@@ -24,6 +25,7 @@ import java.util.concurrent.Executors
 
 class HttpMediaServer(
     private val port: Int = 8192,
+    private val contextProvider: (() -> Context)? = null,
     private val getTranscodeOption: () -> TranscodeOption = { TranscodeOption.NONE },
     private val getSharedDirectories: () -> List<SharedDirectory>
 ) {
@@ -285,6 +287,8 @@ class HttpMediaServer(
         isHeadOnly: Boolean,
         clientIp: String?
     ): Boolean {
+        val activeContext = contextProvider?.invoke() ?: return false
+
         val sendHeaderAction = {
             val headerBuilder = StringBuilder()
             headerBuilder.append("HTTP/1.1 200 OK\r\n")
@@ -304,6 +308,7 @@ class HttpMediaServer(
         }
 
         return VideoTranscoder.transcodeToStream(
+            context = activeContext,
             inputFile = file,
             option = option,
             outputStream = outputStream,

@@ -1,7 +1,9 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import android.content.Context
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -23,6 +25,7 @@ class HttpMediaServerTest {
     private lateinit var tempFile: File
     private lateinit var sharedDir: SharedDirectory
     private lateinit var server: HttpMediaServer
+    private lateinit var mockContext: Context
     private var activeTranscodeOption: TranscodeOption = TranscodeOption.NONE
     private val testDispatcher = UnconfinedTestDispatcher()
     private val testScope = TestScope(testDispatcher)
@@ -38,6 +41,7 @@ class HttpMediaServerTest {
             path = tempFile.parentFile?.absolutePath ?: tempFile.absolutePath,
             displayName = "Test"
         )
+        mockContext = mockk(relaxed = true)
         activeTranscodeOption = TranscodeOption.NONE
     }
 
@@ -54,6 +58,7 @@ class HttpMediaServerTest {
     private fun startServerForPort(port: Int): HttpMediaServer {
         val s = HttpMediaServer(
             port = port,
+            contextProvider = { mockContext },
             getTranscodeOption = { activeTranscodeOption },
             getSharedDirectories = { listOf(sharedDir) }
         )

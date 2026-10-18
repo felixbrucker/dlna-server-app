@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import android.content.Context
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
@@ -23,11 +24,16 @@ class DlnaServerEngine @Inject constructor() {
     private var httpMediaServer: HttpMediaServer? = null
     private var ssdpServer: SsdpServer? = null
 
+    private var activeContextProvider: (() -> Context)? = null
     private var activeSharedDirectoriesProvider: (() -> List<SharedDirectory>)? = null
     private var activeTranscodeOptionProvider: (() -> TranscodeOption)? = null
 
     private val _serverInfo = MutableStateFlow(DlnaServerInfo())
     val serverInfo: StateFlow<DlnaServerInfo> = _serverInfo.asStateFlow()
+
+    fun setContextProvider(provider: () -> Context) {
+        this.activeContextProvider = provider
+    }
 
     fun setSharedDirectoriesProvider(provider: () -> List<SharedDirectory>) {
         this.activeSharedDirectoriesProvider = provider
@@ -62,6 +68,7 @@ class DlnaServerEngine @Inject constructor() {
             val port = 8192
             val httpServer = HttpMediaServer(
                 port = port,
+                contextProvider = activeContextProvider,
                 getTranscodeOption = { activeTranscodeOptionProvider?.invoke() ?: TranscodeOption.NONE },
                 getSharedDirectories = { activeSharedDirectoriesProvider?.invoke() ?: emptyList() }
             )

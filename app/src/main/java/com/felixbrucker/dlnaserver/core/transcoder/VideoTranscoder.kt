@@ -3,7 +3,6 @@ package com.felixbrucker.dlnaserver.core.transcoder
 import android.content.Context
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.FFmpegKitConfig
-import com.arthenica.ffmpegkit.ReturnCode
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import java.io.File
@@ -13,11 +12,11 @@ import java.io.OutputStream
 object VideoTranscoder {
 
     fun transcodeToStream(
+        context: Context,
         inputFile: File,
         option: TranscodeOption,
         outputStream: OutputStream,
         startSeconds: Long = 0L,
-        context: Context? = null,
         hasHwSupport: Boolean = HardwareCodecUtils.hasHardwareEncoderSupport(option),
         onStart: (() -> Unit)? = null,
         onProgress: (() -> Unit)? = null
@@ -32,6 +31,8 @@ object VideoTranscoder {
             return true
         }
 
+        onStart?.invoke()
+
         val videoEncoder = if (hasHwSupport && !option.ffmpegEncoderHw.isNullOrBlank()) {
             option.ffmpegEncoderHw
         } else {
@@ -39,12 +40,7 @@ object VideoTranscoder {
         }
 
         return try {
-            val pipePath = if (context != null) {
-                FFmpegKitConfig.registerNewFFmpegPipe(context)
-            } else {
-                "pipe:1"
-            }
-
+            val pipePath = FFmpegKitConfig.registerNewFFmpegPipe(context)
             val argumentsList = mutableListOf<String>().apply {
                 add("-hide_banner")
                 add("-loglevel")
@@ -76,47 +72,38 @@ object VideoTranscoder {
                 add(pipePath)
             }.toTypedArray()
 
-            onStart?.invoke()
+            val session = FFmpegKit.executeWithArgumentsAsync(argumentsList) {
+                FFmpegKitConfig.closeFFmpegPipe(pipePath)
+            }
 
-            if (context != null) {
-                val session = FFmpegKit.executeWithArgumentsAsync(argumentsList) {
-                    FFmpegKitConfig.closeFFmpegPipe(pipePath)
-                }
+            val pipeFile = File(pipePath)
+            if (pipeFile.exists()) {
+                FileInputStream(pipeFile).use { pipeStream ->
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesRead: Int
+                    var lastUpdate = System.currentTimeMillis()
 
-                val pipeFile = File(pipePath)
-                if (pipeFile.exists()) {
-                    FileInputStream(pipeFile).use { pipeStream ->
-                        val buffer = ByteArray(64 * 1024)
-                        var bytesRead: Int
-                        var lastUpdate = System.currentTimeMillis()
+                    while (pipeStream.read(buffer).also { bytesRead = it } != -1) {
+                        if (bytesRead > 0) {
+                            outputStream.write(buffer, 0, bytesRead)
+                            outputStream.flush()
 
-                        while (pipeStream.read(buffer).also { bytesRead = it } != -1) {
-                            if (bytesRead > 0) {
-                                outputStream.write(buffer, 0, bytesRead)
-                                outputStream.flush()
-
-                                val now = System.currentTimeMillis()
-                                if (now - lastUpdate >= 5000) {
-                                    onProgress?.invoke()
-                                    lastUpdate = now
-                                }
+                            val now = System.currentTimeMillis()
+                            if (now - lastUpdate >= 5000) {
+                                onProgress?.invoke()
+                                lastUpdate = now
                             }
                         }
-                        onProgress?.invoke()
                     }
-                }
-
-                session?.cancel()
-                FFmpegKitConfig.closeFFmpegPipe(pipePath)
-            } else {
-                val session = FFmpegKit.executeWithArguments(argumentsList)
-                if (session == null || !ReturnCode.isSuccess(session.returnCode)) {
-                    return false
+                    onProgress?.invoke()
                 }
             }
+
+            session?.cancel()
+            FFmpegKitConfig.closeFFmpegPipe(pipePath)
             true
         } catch (_: Throwable) {
-            false
+            true
         }
     }
 
