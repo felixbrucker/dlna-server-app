@@ -15,7 +15,7 @@ import javax.inject.Singleton
 data class TranscodeSettings(
     val option: TranscodeOption = TranscodeOption.X265,
     val resolution: TranscodeResolution = TranscodeResolution.KEEP,
-    val bitrateMb: Int = 6,
+    val bitrateMb: Int = 3,
     val crf: Int = 20,
     val maxParallelJobs: Int = 1
 )
@@ -41,7 +41,7 @@ class AppSettingsRepository @Inject constructor(
     val transcodeSettings: Flow<TranscodeSettings> = dataStore.data.map { preferences ->
         val option = TranscodeOption.fromId(preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265.id)
         val resolution = TranscodeResolution.fromId(preferences[PreferenceKeys.TRANSCODE_RESOLUTION] ?: TranscodeResolution.KEEP.id)
-        val bitrate = preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] ?: 6
+        val bitrate = preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] ?: 3
         val crf = preferences[PreferenceKeys.TRANSCODE_CRF] ?: 20
         val maxJobs = preferences[PreferenceKeys.MAX_PARALLEL_JOBS] ?: 1
 
@@ -68,7 +68,7 @@ class AppSettingsRepository @Inject constructor(
 
     suspend fun setBitrateMb(bitrateMb: Int) {
         dataStore.edit { preferences ->
-            preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] = bitrateMb.coerceIn(6, 12)
+            preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] = bitrateMb.coerceIn(1, 12)
         }
     }
 

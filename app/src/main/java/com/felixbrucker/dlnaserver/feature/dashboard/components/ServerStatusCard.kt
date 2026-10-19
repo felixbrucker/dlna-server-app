@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.felixbrucker.dlnaserver.core.designsystem.theme.StatusGreen
+import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 
@@ -57,6 +58,48 @@ fun ServerStatusCard(
             Spacer(modifier = Modifier.height(12.dp))
             ServerNetworkDetails(serverInfo = serverInfo)
         }
+    }
+}
+
+@Composable
+fun ClientActivityCard(
+    connectedClients: List<ConnectedClientInfo>,
+    modifier: Modifier = Modifier
+) {
+    if (connectedClients.isEmpty()) return
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Connected Clients",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            connectedClients.forEach { client ->
+                ConnectedClientItem(client = client)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectedClientItem(client: ConnectedClientInfo) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(
+            text = "${client.ipAddress} • ${client.userAgent}",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = client.currentActivity,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
     }
 }
 

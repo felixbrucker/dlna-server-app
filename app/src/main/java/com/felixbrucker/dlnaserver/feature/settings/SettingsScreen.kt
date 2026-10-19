@@ -214,8 +214,8 @@ fun SettingsScreen(
                         Slider(
                             value = uiState.transcodeSettings.bitrateMb.toFloat(),
                             onValueChange = { viewModel.onBitrateChanged(it.toInt()) },
-                            valueRange = 6f..12f,
-                            steps = 5
+                            valueRange = 1f..12f,
+                            steps = 10
                         )
                     }
 

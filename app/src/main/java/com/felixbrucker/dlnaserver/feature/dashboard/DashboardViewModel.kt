@@ -63,8 +63,7 @@ class DashboardViewModel @Inject constructor(
         val scanning = args[8] as Boolean
 
         val visibleJobs = jobs.filter { job ->
-            job.status == TranscodeJobStatus.PENDING ||
-                    job.status == TranscodeJobStatus.QUEUED ||
+            job.status == TranscodeJobStatus.QUEUED ||
                     job.status == TranscodeJobStatus.RUNNING ||
                     job.status == TranscodeJobStatus.FAILED
         }
@@ -92,6 +91,8 @@ class DashboardViewModel @Inject constructor(
 
     fun clearSearchInput() {
         searchInput.value = ""
+        submittedSearchQuery.value = ""
+        scannedFiles.value = emptyList()
     }
 
     fun submitSearch() {
@@ -146,6 +147,7 @@ class DashboardViewModel @Inject constructor(
             isScanning.value = true
             val directories = sharedDirectoryRepository.getEnabledDirectoriesSync()
             val mediaItems = mutableListOf<DashboardMediaFileItem>()
+            val activeJobs = transcodeQueueManager.jobs.value
 
             for (dir in directories) {
                 val folder = File(dir.path)
@@ -161,7 +163,8 @@ class DashboardViewModel @Inject constructor(
                             if (mime.startsWith("video/")) {
                                 val parent = file.parentFile
                                 val transcodedFile = parent?.let { File(it, "transcoded_${file.name}") }
-                                val isTranscodeDisabled = transcodedFile?.exists() == true
+                                val isEnqueuedOrActive = activeJobs.any { it.inputFile.absolutePath == file.absolutePath }
+                                val isTranscodeDisabled = (transcodedFile?.exists() == true) || isEnqueuedOrActive
 
                                 val metadata = MediaMetadataUtils.extractMetadata(file)
                                 val durationStr = metadata.durationFormatted ?: "--:--"

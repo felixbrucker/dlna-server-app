@@ -3,7 +3,6 @@ package com.felixbrucker.dlnaserver.core.transcoder
 import java.io.File
 
 enum class TranscodeJobStatus {
-    PENDING,
     QUEUED,
     RUNNING,
     COMPLETED,
@@ -18,6 +17,7 @@ data class TranscodeJob(
     val progress: Float = 0f,
     val speed: String = "0.0x",
     val eta: String = "--:--",
+    val etaSeconds: Long = 0L,
     val errorMessage: String? = null,
     val totalDurationMs: Long = 0L
 )

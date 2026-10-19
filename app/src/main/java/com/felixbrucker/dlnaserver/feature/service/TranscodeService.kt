@@ -40,7 +40,7 @@ class TranscodeService : Service() {
             title = "Transcoding Service",
             jobLines = listOf("Preparing jobs..."),
             overallProgress = 0,
-            subText = "Total ETA: --:--"
+            subText = "--:--"
         )
 
         val foregroundType = when {
@@ -80,40 +80,38 @@ class TranscodeService : Service() {
                 val sumProgress = activeJobs.sumOf { it.progress.toDouble() }.toFloat()
                 val overallProgress = ((sumProgress / activeJobs.size.toFloat()) * 100).toInt()
 
-                var totalEtaSeconds = 0L
-                var hasValidEta = false
-                val jobLines = activeJobs.map { job ->
-                    when (job.status) {
-                        TranscodeJobStatus.RUNNING -> {
-                            if (job.eta != "--:--") {
-                                val parts = job.eta.split(":")
-                                if (parts.size == 2) {
-                                    val mins = parts[0].toLongOrNull() ?: 0L
-                                    val secs = parts[1].toLongOrNull() ?: 0L
-                                    totalEtaSeconds += (mins * 60 + secs)
-                                    hasValidEta = true
-                                }
-                            }
-                            val percent = (job.progress * 100).toInt()
-                            "${job.inputFile.name}: $percent% (${job.speed}, ETA ${job.eta})"
-                        }
-                        TranscodeJobStatus.QUEUED -> "${job.inputFile.name}: Queued"
-                        else -> "${job.inputFile.name}: ${job.status.name}"
-                    }
-                }
-
-                val totalEtaStr = if (hasValidEta) {
+                val totalEtaSeconds = activeJobs.filter { it.status == TranscodeJobStatus.RUNNING }.sumOf { it.etaSeconds }
+                val subText = if (totalEtaSeconds > 0) {
                     val m = totalEtaSeconds / 60
                     val s = totalEtaSeconds % 60
                     String.format("%02d:%02d", m, s)
                 } else "--:--"
 
-                val subText = "Total ETA: $totalEtaStr"
+                val jobLines = activeJobs.map { job ->
+                    val truncatedName = truncateFilename(job.inputFile.name, 18)
+                    when (job.status) {
+                        TranscodeJobStatus.RUNNING -> {
+                            val percent = (job.progress * 100).toInt()
+                            "$truncatedName: $percent% (${job.speed}, ETA ${job.eta})"
+                        }
+                        TranscodeJobStatus.QUEUED -> "$truncatedName: Queued"
+                        else -> "$truncatedName: ${job.status.name}"
+                    }
+                }
+
                 val notification = buildNotification(title, jobLines, overallProgress, subText)
 
                 val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(NOTIFICATION_ID, notification)
             }
+        }
+    }
+
+    private fun truncateFilename(filename: String, maxLength: Int): String {
+        return if (filename.length > maxLength) {
+            filename.take(maxLength - 1) + "…"
+        } else {
+            filename
         }
     }
 

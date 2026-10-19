@@ -9,10 +9,12 @@ import java.net.DatagramPacket
 import java.net.InetAddress
 import java.net.MulticastSocket
 import java.net.NetworkInterface
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class SsdpServer(
+@Singleton
+class SsdpServer @Inject constructor() {
     private val port: Int = 8192
-) {
     private var multicastSocket: MulticastSocket? = null
     private var listeningJob: Job? = null
     private var notifyJob: Job? = null

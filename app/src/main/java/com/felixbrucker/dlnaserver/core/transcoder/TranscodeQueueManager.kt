@@ -74,6 +74,7 @@ class TranscodeQueueManager @Inject constructor(
                     progress = 0f,
                     speed = "0.0x",
                     eta = "--:--",
+                    etaSeconds = 0L,
                     errorMessage = null
                 )
             } else job
@@ -172,15 +173,15 @@ class TranscodeQueueManager @Inject constructor(
                             } else 0f
 
                             val speed = if (statistics.speed > 0) String.format("%.1fx", statistics.speed) else "1.0x"
-                            val remainingMs = if (statistics.speed > 0 && totalDuration > timeMs) {
-                                ((totalDuration - timeMs) / statistics.speed).toLong()
+                            val remainingSeconds = if (statistics.speed > 0 && totalDuration > timeMs) {
+                                ((totalDuration - timeMs) / statistics.speed).toLong() / 1000
                             } else 0L
 
-                            val etaMinutes = (remainingMs / 1000) / 60
-                            val etaSeconds = (remainingMs / 1000) % 60
-                            val etaStr = String.format("%02d:%02d", etaMinutes, etaSeconds)
+                            val etaMinutes = remainingSeconds / 60
+                            val etaSecs = remainingSeconds % 60
+                            val etaStr = String.format("%02d:%02d", etaMinutes, etaSecs)
 
-                            updateJobProgress(job.id, progress, speed, etaStr)
+                            updateJobProgress(job.id, progress, speed, etaStr, remainingSeconds)
                         }
                     }
                 )
@@ -223,10 +224,10 @@ class TranscodeQueueManager @Inject constructor(
         }
     }
 
-    private fun updateJobProgress(jobId: String, progress: Float, speed: String, eta: String) {
+    private fun updateJobProgress(jobId: String, progress: Float, speed: String, eta: String, etaSeconds: Long) {
         _jobs.value = _jobs.value.map { job ->
             if (job.id == jobId) {
-                job.copy(progress = progress, speed = speed, eta = eta)
+                job.copy(progress = progress, speed = speed, eta = eta, etaSeconds = etaSeconds)
             } else job
         }
     }

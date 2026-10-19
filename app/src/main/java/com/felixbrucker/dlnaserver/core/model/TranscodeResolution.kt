@@ -6,9 +6,9 @@ enum class TranscodeResolution(
     val scaleFilter: String?
 ) {
     KEEP("KEEP", "Keep original", null),
-    RES_4K("RES_4K", "4K (2160p)", "scale=3840:2160"),
-    RES_1080P("RES_1080P", "1080p", "scale=1920:1080"),
-    RES_720P("RES_720P", "720p", "scale=1280:720");
+    RES_4K("RES_4K", "4K (2160p)", "scale=3840:-2"),
+    RES_1080P("RES_1080P", "1080p", "scale=1920:-2"),
+    RES_720P("RES_720P", "720p", "scale=1280:-2");
 
     companion object {
         fun fromId(id: String): TranscodeResolution {

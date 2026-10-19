@@ -1,6 +1,7 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
+import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import kotlinx.coroutines.CoroutineScope
@@ -31,9 +32,9 @@ class HttpMediaServer @Inject constructor(
     private var serverSocket: ServerSocket? = null
     private var serverJob: Job? = null
 
-    private val clientAccessTimes = ConcurrentHashMap<String, Long>()
-    private val _connectedClients = MutableStateFlow<Set<String>>(emptySet())
-    val connectedClients: StateFlow<Set<String>> = _connectedClients.asStateFlow()
+    private val clientAccessMap = ConcurrentHashMap<String, ConnectedClientInfo>()
+    private val _connectedClients = MutableStateFlow<List<ConnectedClientInfo>>(emptyList())
+    val connectedClients: StateFlow<List<ConnectedClientInfo>> = _connectedClients.asStateFlow()
 
     @Volatile
     private var isRunning = false
@@ -56,8 +57,8 @@ class HttpMediaServer @Inject constructor(
                 launch {
                     while (isRunning) {
                         val now = System.currentTimeMillis()
-                        clientAccessTimes.entries.removeIf { now - it.value > 300_000 }
-                        _connectedClients.value = clientAccessTimes.keys.toSet()
+                        clientAccessMap.entries.removeIf { now - it.value.lastAccessTimestamp > 300_000 }
+                        _connectedClients.value = clientAccessMap.values.toList()
                         kotlinx.coroutines.delay(10_000)
                     }
                 }
@@ -88,17 +89,13 @@ class HttpMediaServer @Inject constructor(
         serverSocket = null
         serverJob?.cancel()
         serverJob = null
-        clientAccessTimes.clear()
-        _connectedClients.value = emptySet()
+        clientAccessMap.clear()
+        _connectedClients.value = emptyList()
     }
 
     private fun handleClient(socket: Socket, hostIp: String) {
         try {
-            val clientIp = socket.inetAddress?.hostAddress
-            if (clientIp != null) {
-                clientAccessTimes[clientIp] = System.currentTimeMillis()
-                _connectedClients.value = clientAccessTimes.keys.toSet()
-            }
+            val clientIp = socket.inetAddress?.hostAddress ?: return
 
             val input = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
             val outputStream = BufferedOutputStream(socket.getOutputStream())
@@ -128,6 +125,8 @@ class HttpMediaServer @Inject constructor(
                 }
             }
 
+            val userAgent = headers["user-agent"] ?: "Unknown"
+
             var body = ""
             if (contentLength > 0) {
                 val charBuffer = CharArray(contentLength)
@@ -144,33 +143,41 @@ class HttpMediaServer @Inject constructor(
 
             when {
                 uri.startsWith("/description.xml") -> {
+                    updateClientActivity(clientIp, userAgent, "Browsing Description")
                     val xml = ContentDirectoryXml.generateDeviceDescription(hostIp, port)
                     sendXmlResponse(outputStream, xml)
                 }
                 uri.startsWith("/scpd/ContentDirectory.xml") -> {
+                    updateClientActivity(clientIp, userAgent, "Browsing ContentDirectory SCPD")
                     sendXmlResponse(outputStream, ContentDirectoryXml.getContentDirectoryScpd())
                 }
                 uri.startsWith("/scpd/ConnectionManager.xml") -> {
+                    updateClientActivity(clientIp, userAgent, "Browsing ConnectionManager SCPD")
                     sendXmlResponse(outputStream, ContentDirectoryXml.getConnectionManagerScpd())
                 }
                 uri.startsWith("/ctl/ContentDirectory") -> {
+                    updateClientActivity(clientIp, userAgent, "Browsing Folder")
                     val responseXml = handleContentDirectoryControl(body, baseUrl)
                     sendXmlResponse(outputStream, responseXml)
                 }
                 uri.startsWith("/ctl/ConnectionManager") -> {
+                    updateClientActivity(clientIp, userAgent, "Connection Manager")
                     sendXmlResponse(outputStream, handleConnectionManagerControl())
                 }
                 uri.startsWith("/media") -> {
                     val pathParam = uri.substringAfter("path=", "").substringBefore("&")
                     if (pathParam.isNotEmpty()) {
                         val filePath = ContentDirectoryXml.decodePath(pathParam)
+                        val mediaFile = File(filePath)
+                        updateClientActivity(clientIp, userAgent, "Streaming: ${mediaFile.name}")
                         serveMediaFile(
                             socket = socket,
                             outputStream = outputStream,
-                            file = File(filePath),
+                            file = mediaFile,
                             headers = headers,
                             isHeadOnly = method == "HEAD",
-                            clientIp = clientIp
+                            clientIp = clientIp,
+                            userAgent = userAgent
                         )
                     } else {
                         sendNotFound(outputStream)
@@ -187,6 +194,16 @@ class HttpMediaServer @Inject constructor(
             } catch (_: Exception) {
             }
         }
+    }
+
+    private fun updateClientActivity(clientIp: String, userAgent: String, activity: String) {
+        clientAccessMap[clientIp] = ConnectedClientInfo(
+            ipAddress = clientIp,
+            userAgent = userAgent,
+            currentActivity = activity,
+            lastAccessTimestamp = System.currentTimeMillis()
+        )
+        _connectedClients.value = clientAccessMap.values.toList()
     }
 
     private fun handleContentDirectoryControl(body: String, baseUrl: String): String {
@@ -235,7 +252,8 @@ class HttpMediaServer @Inject constructor(
         file: File,
         headers: Map<String, String>,
         isHeadOnly: Boolean = false,
-        clientIp: String? = null
+        clientIp: String,
+        userAgent: String
     ) {
         if (!file.exists() || !file.isFile) {
             sendNotFound(outputStream)
@@ -259,7 +277,8 @@ class HttpMediaServer @Inject constructor(
             file = file,
             headers = headers,
             isHeadOnly = isHeadOnly,
-            clientIp = clientIp
+            clientIp = clientIp,
+            userAgent = userAgent
         )
     }
 
@@ -268,7 +287,8 @@ class HttpMediaServer @Inject constructor(
         file: File,
         headers: Map<String, String>,
         isHeadOnly: Boolean,
-        clientIp: String?
+        clientIp: String,
+        userAgent: String
     ) {
         val fileLength = file.length()
         val mimeType = MimeTypeUtils.getMimeType(file)
@@ -345,20 +365,13 @@ class HttpMediaServer @Inject constructor(
                 outputStream.flush()
                 bytesToRead -= read
 
-                if (clientIp != null) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastTimeUpdate >= 5000) {
-                        clientAccessTimes[clientIp] = now
-                        _connectedClients.value = clientAccessTimes.keys.toSet()
-                        lastTimeUpdate = now
-                    }
+                val now = System.currentTimeMillis()
+                if (now - lastTimeUpdate >= 5000) {
+                    updateClientActivity(clientIp, userAgent, "Streaming: ${file.name}")
+                    lastTimeUpdate = now
                 }
             }
-            if (clientIp != null) {
-                val now = System.currentTimeMillis()
-                clientAccessTimes[clientIp] = now
-                _connectedClients.value = clientAccessTimes.keys.toSet()
-            }
+            updateClientActivity(clientIp, userAgent, "Streaming: ${file.name}")
         }
     }
 

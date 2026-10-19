@@ -16,11 +16,11 @@ import javax.inject.Singleton
 
 @Singleton
 class DlnaServerEngine @Inject constructor(
-    private val httpMediaServer: HttpMediaServer
+    private val httpMediaServer: HttpMediaServer,
+    private val ssdpServer: SsdpServer
 ) {
 
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var ssdpServer: SsdpServer? = null
 
     private val _serverInfo = MutableStateFlow(DlnaServerInfo())
     val serverInfo: StateFlow<DlnaServerInfo> = _serverInfo.asStateFlow()
@@ -42,17 +42,15 @@ class DlnaServerEngine @Inject constructor(
 
         try {
             val port = 8192
-            val ssdp = SsdpServer(port = port)
 
             httpMediaServer.start(netIf.ipAddress, engineScope)
-            ssdp.start(netIf.ipAddress, netIf.name, engineScope)
-
-            ssdpServer = ssdp
+            ssdpServer.start(netIf.ipAddress, netIf.name, engineScope)
 
             engineScope.launch {
                 httpMediaServer.connectedClients.collect { clients ->
                     _serverInfo.value = _serverInfo.value.copy(
-                        connectedDeviceCount = clients.size
+                        connectedDeviceCount = clients.size,
+                        connectedClients = clients
                     )
                 }
             }
@@ -63,6 +61,7 @@ class DlnaServerEngine @Inject constructor(
                 boundInterface = netIf.displayName,
                 port = port,
                 connectedDeviceCount = 0,
+                connectedClients = emptyList(),
                 errorMessage = null
             )
             return true
@@ -80,10 +79,9 @@ class DlnaServerEngine @Inject constructor(
     fun stopServer() {
         try {
             httpMediaServer.stop()
-            ssdpServer?.stop()
+            ssdpServer.stop()
         } catch (_: Exception) {
         }
-        ssdpServer = null
 
         _serverInfo.value = DlnaServerInfo(
             status = ServerStatus.STOPPED,
@@ -91,6 +89,7 @@ class DlnaServerEngine @Inject constructor(
             boundInterface = "None",
             port = 8192,
             connectedDeviceCount = 0,
+            connectedClients = emptyList(),
             errorMessage = null
         )
     }

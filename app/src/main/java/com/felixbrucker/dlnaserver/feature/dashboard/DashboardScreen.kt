@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
 import com.felixbrucker.dlnaserver.core.util.PermissionUtils
+import com.felixbrucker.dlnaserver.feature.dashboard.components.ClientActivityCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.PermissionCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.ServerStatusCard
 
@@ -178,26 +180,17 @@ fun DashboardScreen(
                     serverInfo = uiState.serverInfo,
                     onToggleServer = { viewModel.toggleServer() }
                 )
+                ClientActivityCard(
+                    connectedClients = uiState.serverInfo.connectedClients
+                )
             }
         }
     }
 }
 
 private fun calculateTotalEtaString(jobs: List<TranscodeJob>): String {
-    var totalSeconds = 0L
-    var hasValidEta = false
-    for (job in jobs) {
-        if (job.status == TranscodeJobStatus.RUNNING && job.eta != "--:--") {
-            val parts = job.eta.split(":")
-            if (parts.size == 2) {
-                val mins = parts[0].toLongOrNull() ?: 0L
-                val secs = parts[1].toLongOrNull() ?: 0L
-                totalSeconds += (mins * 60 + secs)
-                hasValidEta = true
-            }
-        }
-    }
-    if (!hasValidEta) return "--:--"
+    val totalSeconds = jobs.filter { it.status == TranscodeJobStatus.RUNNING }.sumOf { it.etaSeconds }
+    if (totalSeconds == 0L) return "--:--"
     val m = totalSeconds / 60
     val s = totalSeconds % 60
     return String.format("%02d:%02d", m, s)
@@ -220,28 +213,30 @@ private fun SearchFileDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
-                    value = uiState.searchInput,
-                    onValueChange = onSearchInputChange,
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Enter video filename...") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { onSubmitSearch() }),
-                    trailingIcon = {
-                        if (uiState.searchInput.isNotEmpty()) {
-                            IconButton(onClick = onClearInput) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = uiState.searchInput,
+                        onValueChange = onSearchInputChange,
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Enter video filename...") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { onSubmitSearch() }),
+                        trailingIcon = {
+                            if (uiState.searchInput.isNotEmpty()) {
+                                IconButton(onClick = onClearInput) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                }
                             }
                         }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(onClick = onSubmitSearch) {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
                     }
-                )
-
-                Button(
-                    onClick = onSubmitSearch,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Search")
                 }
 
                 if (uiState.isScanningFiles) {
@@ -399,22 +394,41 @@ private fun TranscodeJobRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = job.inputFile.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
+                val badgeColor = when (job.status) {
+                    TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.primaryContainer
+                    TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                val badgeTextColor = when (job.status) {
+                    TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.onPrimaryContainer
+                    TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.onErrorContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = badgeColor,
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = job.status.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = badgeTextColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                     Text(
-                        text = job.status.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = when (job.status) {
-                            TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.primary
-                            TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.outline
-                        }
+                        text = job.inputFile.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
                     )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (job.status == TranscodeJobStatus.FAILED) {
                         IconButton(onClick = onRetryClick) {
                             Icon(
