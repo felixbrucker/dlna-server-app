@@ -46,6 +46,9 @@ object HardwareCodecUtils {
         return hasHardwareEncoderSupport(option.mimeType)
     }
 
+    /**
+     * Note: This method is currently unused until FFmpeg provides 10-bit support for MediaCodec encoders.
+     */
     fun has10BitEncoderSupport(mimeType: String?): Boolean {
         return !mimeType.isNullOrBlank() && try {
             val codecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
@@ -59,6 +62,9 @@ object HardwareCodecUtils {
         }
     }
 
+    /**
+     * Note: This method is currently unused until FFmpeg provides 10-bit support for MediaCodec encoders.
+     */
     fun has10BitEncoderSupport(option: TranscodeOption): Boolean {
         return has10BitEncoderSupport(option.mimeType)
     }

@@ -128,7 +128,7 @@ class TranscodeQueueManager @Inject constructor(
             val isTarget10Bit = isSource10Bit && option.is10BitSupported
 
             val bitDepthChange = if (isSource10Bit && !isTarget10Bit) {
-                "10 bit -> 8 bit"
+                "10 bit → 8 bit"
             } else null
 
             val sourceDims = MediaMetadataUtils.getVideoDimensions(inputFile)
@@ -142,14 +142,14 @@ class TranscodeQueueManager @Inject constructor(
                 }
                 if (targetW < srcW) {
                     val calcH = round((srcH.toDouble() * targetW.toDouble() / srcW.toDouble()) / 2.0).toInt() * 2
-                    "${srcW}x${srcH} -> ${targetW}x${calcH}"
+                    "${srcW}x${srcH} → ${targetW}x${calcH}"
                 } else null
             } else null
 
             val sourceCodec = MediaMetadataUtils.getVideoCodecName(inputFile)
             val targetCodec = option.codecName
             val codecChange = if (!sourceCodec.isNullOrBlank() && !sourceCodec.equals(targetCodec, ignoreCase = true)) {
-                "$sourceCodec -> $targetCodec"
+                "$sourceCodec → $targetCodec"
             } else null
 
             val entity = TranscodeJobEntity(

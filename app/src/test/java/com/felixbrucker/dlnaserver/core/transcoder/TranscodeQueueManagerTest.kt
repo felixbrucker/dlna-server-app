@@ -181,9 +181,9 @@ class TranscodeQueueManagerTest {
             inputFilePath = "/tmp/input3.mp4",
             outputFilePath = "/tmp/transcoded_input3.mp4",
             status = TranscodeJobStatus.FAILED,
-            bitDepthChange = "10 bit -> 8 bit",
-            resolutionChange = "2592x1080 -> 1920x800",
-            codecChange = "x264 -> x265"
+            bitDepthChange = "10 bit → 8 bit",
+            resolutionChange = "2592x1080 → 1920x800",
+            codecChange = "x264 → x265"
         )
         dbJobsFlow.value = listOf(entity)
         val manager = TranscodeQueueManager(
@@ -196,8 +196,8 @@ class TranscodeQueueManagerTest {
         val jobList = manager.jobs.first { it.isNotEmpty() }
         val job = jobList.first()
 
-        assertEquals("10 bit -> 8 bit", job.bitDepthChange)
-        assertEquals("2592x1080 -> 1920x800", job.resolutionChange)
-        assertEquals("x264 -> x265", job.codecChange)
+        assertEquals("10 bit → 8 bit", job.bitDepthChange)
+        assertEquals("2592x1080 → 1920x800", job.resolutionChange)
+        assertEquals("x264 → x265", job.codecChange)
     }
 }
