@@ -72,7 +72,7 @@ object MediaMetadataUtils {
         if (!file.exists() || !file.isFile) return false
 
         val extractor = MediaExtractor()
-        try {
+        return try {
             extractor.setDataSource(file.absolutePath)
             for (i in 0 until extractor.trackCount) {
                 val format = extractor.getTrackFormat(i)
@@ -98,33 +98,12 @@ object MediaMetadataUtils {
                     }
                 }
             }
+            false
         } catch (_: Throwable) {
+            false
         } finally {
             try {
                 extractor.release()
-            } catch (_: Throwable) {
-            }
-        }
-
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(file.absolutePath)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val pixelFormat = retriever.extractMetadata(39) // METADATA_KEY_VIDEO_PIXEL_FORMAT
-                if (!pixelFormat.isNullOrEmpty() && (pixelFormat.contains("10") || pixelFormat.contains("p10"))) {
-                    return true
-                }
-                val colorTransfer = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COLOR_TRANSFER)
-                if (colorTransfer == "6" || colorTransfer == "7") {
-                    return true
-                }
-            }
-            false
-        } catch (_: Throwable) {
-            false
-        } finally {
-            try {
-                retriever.release()
             } catch (_: Throwable) {
             }
         }
