@@ -78,15 +78,15 @@ object MediaMetadataUtils {
                 val format = extractor.getTrackFormat(i)
                 val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
                 if (mime.startsWith("video/")) {
-                    if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
-                        val transfer = format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
-                        if (transfer == MediaFormat.COLOR_TRANSFER_HLG || transfer == MediaFormat.COLOR_TRANSFER_ST2084) {
-                            return true
-                        }
-                    }
                     if (format.containsKey(MediaFormat.KEY_PROFILE)) {
                         val profile = format.getInteger(MediaFormat.KEY_PROFILE)
                         if (profile.is10BitProfileFor(mime)) {
+                            return true
+                        }
+                    }
+                    if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
+                        val transfer = format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
+                        if (transfer == MediaFormat.COLOR_TRANSFER_HLG || transfer == MediaFormat.COLOR_TRANSFER_ST2084) {
                             return true
                         }
                     }
