@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -79,7 +78,7 @@ class DlnaService : Service() {
                         ipAddress = info.ipAddress,
                         connectedDevices = info.connectedDeviceCount
                     )
-                    val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                     manager.notify(NOTIFICATION_ID, notification)
                 } else if (info.status == ServerStatus.STOPPED || info.status == ServerStatus.ERROR) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -136,7 +135,7 @@ class DlnaService : Service() {
         ).apply {
             description = "Shows the active status of the DLNA server."
         }
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
     }
 

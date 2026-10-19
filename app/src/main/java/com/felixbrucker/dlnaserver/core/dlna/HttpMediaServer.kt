@@ -23,6 +23,7 @@ import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.seconds
 
 @Singleton
 class HttpMediaServer @Inject constructor(
@@ -59,7 +60,7 @@ class HttpMediaServer @Inject constructor(
                         val now = System.currentTimeMillis()
                         clientAccessMap.entries.removeIf { now - it.value.lastAccessTimestamp > 300_000 }
                         _connectedClients.value = clientAccessMap.values.toList()
-                        kotlinx.coroutines.delay(10_000)
+                        kotlinx.coroutines.delay(10.seconds)
                     }
                 }
 
@@ -144,7 +145,7 @@ class HttpMediaServer @Inject constructor(
             when {
                 uri.startsWith("/description.xml") -> {
                     updateClientActivity(clientIp, userAgent, "Browsing Description")
-                    val xml = ContentDirectoryXml.generateDeviceDescription(hostIp, port)
+                    val xml = ContentDirectoryXml.generateDeviceDescription()
                     sendXmlResponse(outputStream, xml)
                 }
                 uri.startsWith("/scpd/ContentDirectory.xml") -> {
@@ -180,7 +181,6 @@ class HttpMediaServer @Inject constructor(
                         val mediaFile = File(filePath)
                         updateClientActivity(clientIp, userAgent, "Streaming: ${mediaFile.name}")
                         serveMediaFile(
-                            socket = socket,
                             outputStream = outputStream,
                             file = mediaFile,
                             headers = headers,
@@ -256,7 +256,6 @@ class HttpMediaServer @Inject constructor(
     }
 
     private fun serveMediaFile(
-        socket: Socket,
         outputStream: OutputStream,
         file: File,
         headers: Map<String, String>,

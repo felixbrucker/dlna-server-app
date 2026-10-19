@@ -63,7 +63,7 @@ class TranscodeQueueManager @Inject constructor(
             totalDurationMs = durationMs
         )
 
-        _jobs.value = _jobs.value + job
+        _jobs.value += job
         transcodeServiceLauncher.startService()
         processQueue()
     }

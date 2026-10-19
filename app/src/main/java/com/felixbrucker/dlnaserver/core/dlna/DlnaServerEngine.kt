@@ -6,7 +6,6 @@ import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -92,14 +91,5 @@ class DlnaServerEngine @Inject constructor(
             connectedClients = emptyList(),
             errorMessage = null
         )
-    }
-
-    fun isRunning(): Boolean {
-        return _serverInfo.value.status == ServerStatus.RUNNING
-    }
-
-    fun shutdown() {
-        stopServer()
-        engineScope.cancel()
     }
 }

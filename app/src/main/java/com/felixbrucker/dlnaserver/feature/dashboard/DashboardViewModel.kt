@@ -22,10 +22,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import kotlin.math.ln
+import kotlin.math.pow
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val dlnaServerEngine: DlnaServerEngine,
+    dlnaServerEngine: DlnaServerEngine,
     private val dlnaServiceLauncher: DlnaServiceLauncher,
     private val sharedDirectoryRepository: SharedDirectoryRepository,
     private val transcodeQueueManager: TranscodeQueueManager
@@ -199,8 +201,8 @@ class DashboardViewModel @Inject constructor(
 
     private fun formatFileSize(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
-        val exp = (Math.log(bytes.toDouble()) / Math.log(1024.0)).toInt()
+        val exp = (ln(bytes.toDouble()) / ln(1024.0)).toInt()
         val pre = "KMGTPE"[exp - 1]
-        return String.format("%.1f %sB", bytes / Math.pow(1024.0, exp.toDouble()), pre)
+        return String.format("%.1f %sB", bytes / 1024.0.pow(exp.toDouble()), pre)
     }
 }

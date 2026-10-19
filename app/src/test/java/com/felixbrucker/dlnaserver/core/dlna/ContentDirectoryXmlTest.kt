@@ -12,7 +12,7 @@ class ContentDirectoryXmlTest {
         val ip = "192.168.1.100"
         val port = 8192
 
-        val xml = ContentDirectoryXml.generateDeviceDescription(ip, port, "Test DLNA")
+        val xml = ContentDirectoryXml.generateDeviceDescription("Test DLNA")
 
         assertTrue(xml.contains("Test DLNA"))
         assertTrue(xml.contains("urn:schemas-upnp-org:service:ContentDirectory:1"))

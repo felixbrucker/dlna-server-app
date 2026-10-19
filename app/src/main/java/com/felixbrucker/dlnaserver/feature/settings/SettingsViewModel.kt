@@ -90,7 +90,7 @@ class SettingsViewModel @Inject constructor(
 
     fun toggleSharedDirectory(directory: SharedDirectory) {
         viewModelScope.launch {
-            sharedDirectoryRepository.toggleDirectoryEnabled(directory.id, !directory.isEnabled)
+            sharedDirectoryRepository.toggleDirectory(directory)
         }
     }
 

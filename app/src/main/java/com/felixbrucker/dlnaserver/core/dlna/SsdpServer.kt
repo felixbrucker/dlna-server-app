@@ -11,6 +11,7 @@ import java.net.MulticastSocket
 import java.net.NetworkInterface
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.seconds
 
 @Singleton
 class SsdpServer @Inject constructor() {
@@ -46,7 +47,7 @@ class SsdpServer @Inject constructor() {
 
                 notifyJob = launch {
                     while (isRunning) {
-                        delay(30_000)
+                        delay(30.seconds)
                         if (isRunning) {
                             sendSsdpAlive(socket, group, ipAddress)
                         }

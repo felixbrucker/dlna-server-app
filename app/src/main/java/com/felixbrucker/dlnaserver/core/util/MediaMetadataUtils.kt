@@ -33,7 +33,7 @@ object MediaMetadataUtils {
             } else null
 
             val bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
-            val sampleFrequency = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val sampleFrequency = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toLongOrNull()
             } else null
 

@@ -2,6 +2,7 @@ package com.felixbrucker.dlnaserver.core.util
 
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
+import android.os.Build
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 
 object HardwareCodecUtils {
@@ -11,8 +12,7 @@ object HardwareCodecUtils {
     }
 
     fun hasHardwareEncoderSupport(mimeType: String?): Boolean {
-        if (mimeType.isNullOrBlank()) return false
-        return try {
+        return !mimeType.isNullOrBlank() && try {
             val codecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
             val infos = codecList.codecInfos ?: return false
 
@@ -37,12 +37,12 @@ object HardwareCodecUtils {
     }
 
     private fun isHardwareAccelerated(info: MediaCodecInfo): Boolean {
-        return try {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             info.isHardwareAccelerated
-        } catch (_: Throwable) {
+        } else {
             val name = info.name
             !name.startsWith("OMX.google.", ignoreCase = true) &&
-                    !name.startsWith("c2.android.", ignoreCase = true)
+                !name.startsWith("c2.android.", ignoreCase = true)
         }
     }
 }

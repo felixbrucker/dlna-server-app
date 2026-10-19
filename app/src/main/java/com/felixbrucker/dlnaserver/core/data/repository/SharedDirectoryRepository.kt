@@ -19,11 +19,6 @@ class SharedDirectoryRepository @Inject constructor(
             list.map { it.toDomain() }
         }
 
-    val enabledDirectories: Flow<List<SharedDirectory>> =
-        sharedDirectoryDao.getEnabledDirectories().map { list ->
-            list.map { it.toDomain() }
-        }
-
     suspend fun getEnabledDirectoriesSync(): List<SharedDirectory> {
         return sharedDirectoryDao.getEnabledDirectoriesSync().map { it.toDomain() }
     }
@@ -54,14 +49,6 @@ class SharedDirectoryRepository @Inject constructor(
         val existing = sharedDirectoryDao.getDirectoryByPath(directory.path)
         if (existing != null) {
             sharedDirectoryDao.updateDirectory(existing.copy(isEnabled = !existing.isEnabled))
-        }
-    }
-
-    suspend fun toggleDirectoryEnabled(id: Long, enabled: Boolean) {
-        val directories = sharedDirectoryDao.getAllDirectoriesSync()
-        val match = directories.find { it.id == id }
-        if (match != null) {
-            sharedDirectoryDao.updateDirectory(match.copy(isEnabled = enabled))
         }
     }
 
