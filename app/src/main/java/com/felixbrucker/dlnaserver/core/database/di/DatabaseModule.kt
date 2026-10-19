@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.felixbrucker.dlnaserver.core.database.AppDatabase
 import com.felixbrucker.dlnaserver.core.database.dao.SharedDirectoryDao
+import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,5 +33,12 @@ object DatabaseModule {
         database: AppDatabase
     ): SharedDirectoryDao {
         return database.sharedDirectoryDao()
+    }
+
+    @Provides
+    fun provideTranscodeJobDao(
+        database: AppDatabase
+    ): TranscodeJobDao {
+        return database.transcodeJobDao()
     }
 }

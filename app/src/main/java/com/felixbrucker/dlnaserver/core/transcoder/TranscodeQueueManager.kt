@@ -3,6 +3,8 @@ package com.felixbrucker.dlnaserver.core.transcoder
 import android.media.MediaMetadataRetriever
 import android.os.PowerManager
 import com.arthenica.ffmpegkit.FFmpegKit
+import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
+import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
@@ -13,11 +15,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
@@ -31,11 +35,36 @@ import kotlin.coroutines.resume
 class TranscodeQueueManager @Inject constructor(
     powerManager: PowerManager,
     private val appSettingsRepository: AppSettingsRepository,
-    private val transcodeServiceLauncher: TranscodeServiceLauncher
+    private val transcodeServiceLauncher: TranscodeServiceLauncher,
+    private val transcodeJobDao: TranscodeJobDao
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val _jobs = MutableStateFlow<List<TranscodeJob>>(emptyList())
-    val jobs: StateFlow<List<TranscodeJob>> = _jobs.asStateFlow()
+    private val _progressMap = MutableStateFlow<Map<String, TranscodeJobProgress>>(emptyMap())
+
+    val jobs: StateFlow<List<TranscodeJob>> = combine(
+        transcodeJobDao.getAllJobs(),
+        _progressMap
+    ) { entities, progressMap ->
+        entities.map { entity ->
+            val progress = progressMap[entity.id]
+            TranscodeJob(
+                id = entity.id,
+                inputFile = entity.inputFile,
+                outputFile = entity.outputFile,
+                status = entity.status,
+                progress = progress?.progress ?: 0f,
+                speed = progress?.speed ?: "0.0x",
+                eta = progress?.eta ?: "--:--",
+                etaSeconds = progress?.etaSeconds ?: 0L,
+                errorMessage = entity.errorMessage,
+                totalDurationMs = entity.totalDurationMs
+            )
+        }
+    }.stateIn(
+        scope = scope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
 
     private val runningJobTasks = ConcurrentHashMap<String, Job>()
 
@@ -46,12 +75,35 @@ class TranscodeQueueManager @Inject constructor(
 
     init {
         scope.launch {
+            reEnqueueJobsOnInit()
+        }
+        scope.launch {
             appSettingsRepository.transcodeSettings
                 .map { it.maxParallelJobs }
                 .distinctUntilChanged()
                 .collect {
                     processQueue()
                 }
+        }
+    }
+
+    private suspend fun reEnqueueJobsOnInit() {
+        val existingJobs = transcodeJobDao.getAllJobsSync()
+        var hasQueuedOrRunning = false
+        for (job in existingJobs) {
+            if (job.status == TranscodeJobStatus.RUNNING) {
+                if (job.outputFile.exists()) {
+                    try { job.outputFile.delete() } catch (_: Throwable) {}
+                }
+                transcodeJobDao.updateJobStatus(job.id, TranscodeJobStatus.QUEUED, errorMessage = null)
+                hasQueuedOrRunning = true
+            } else if (job.status == TranscodeJobStatus.QUEUED) {
+                hasQueuedOrRunning = true
+            }
+        }
+        if (hasQueuedOrRunning) {
+            transcodeServiceLauncher.startService()
+            processQueue()
         }
     }
 
@@ -63,45 +115,42 @@ class TranscodeQueueManager @Inject constructor(
         val durationMs = getMediaDuration(inputFile)
         val jobId = UUID.randomUUID().toString()
 
-        val job = TranscodeJob(
+        val entity = TranscodeJobEntity(
             id = jobId,
-            inputFile = inputFile,
-            outputFile = outputFile,
+            inputFilePath = inputFile.absolutePath,
+            outputFilePath = outputFile.absolutePath,
             status = TranscodeJobStatus.QUEUED,
             totalDurationMs = durationMs
         )
 
-        _jobs.value += job
-        transcodeServiceLauncher.startService()
-        processQueue()
+        scope.launch {
+            transcodeJobDao.insertJob(entity)
+            transcodeServiceLauncher.startService()
+            processQueue()
+        }
     }
 
     fun cancelJob(jobId: String) {
         val task = runningJobTasks.remove(jobId)
         task?.cancel()
-        val targetJob = _jobs.value.find { it.id == jobId }
-        if (targetJob != null && targetJob.outputFile.exists()) {
-            try { targetJob.outputFile.delete() } catch (_: Throwable) {}
+        scope.launch {
+            val targetJob = transcodeJobDao.getJobById(jobId)
+            if (targetJob != null && targetJob.outputFile.exists()) {
+                try { targetJob.outputFile.delete() } catch (_: Throwable) {}
+            }
+            transcodeJobDao.deleteJobById(jobId)
+            _progressMap.value = _progressMap.value - jobId
+            processQueue()
         }
-        _jobs.value = _jobs.value.filter { it.id != jobId }
-        processQueue()
     }
 
     fun retryJob(jobId: String) {
-        _jobs.value = _jobs.value.map { job ->
-            if (job.id == jobId) {
-                job.copy(
-                    status = TranscodeJobStatus.QUEUED,
-                    progress = 0f,
-                    speed = "0.0x",
-                    eta = "--:--",
-                    etaSeconds = 0L,
-                    errorMessage = null
-                )
-            } else job
+        scope.launch {
+            transcodeJobDao.updateJobStatus(jobId, TranscodeJobStatus.QUEUED, errorMessage = null)
+            _progressMap.value = _progressMap.value + (jobId to TranscodeJobProgress(jobId))
+            transcodeServiceLauncher.startService()
+            processQueue()
         }
-        transcodeServiceLauncher.startService()
-        processQueue()
     }
 
     private fun processQueue() {
@@ -109,24 +158,26 @@ class TranscodeQueueManager @Inject constructor(
             val settings = appSettingsRepository.transcodeSettings.first()
             val maxParallel = settings.maxParallelJobs
 
-            val currentRunning = _jobs.value.count { it.status == TranscodeJobStatus.RUNNING }
+            val currentJobs = transcodeJobDao.getAllJobsSync()
+            val currentRunning = currentJobs.count { it.status == TranscodeJobStatus.RUNNING }
             if (currentRunning >= maxParallel) return@launch
 
-            val nextJobs = _jobs.value
-                .filter { it.status == TranscodeJobStatus.QUEUED }
+            val nextJobs = currentJobs
+                .filter { it.status == TranscodeJobStatus.QUEUED && !runningJobTasks.containsKey(it.id) }
                 .take(maxParallel - currentRunning)
 
             for (nextJob in nextJobs) {
-                updateJobStatus(nextJob.id, TranscodeJobStatus.RUNNING)
+                transcodeJobDao.updateJobStatus(nextJob.id, TranscodeJobStatus.RUNNING)
+                val updatedEntity = nextJob.copy(status = TranscodeJobStatus.RUNNING)
                 val jobTask = launch {
-                    executeTranscodeJob(nextJob, settings)
+                    executeTranscodeJob(updatedEntity, settings)
                 }
                 runningJobTasks[nextJob.id] = jobTask
             }
         }
     }
 
-    private suspend fun executeTranscodeJob(job: TranscodeJob, settings: TranscodeSettings) {
+    private suspend fun executeTranscodeJob(job: TranscodeJobEntity, settings: TranscodeSettings) {
         wakeLock.acquire()
         val inputFile = job.inputFile
         val outputFile = job.outputFile
@@ -233,9 +284,10 @@ class TranscodeQueueManager @Inject constructor(
             }
 
             if (session.returnCode.isValueSuccess) {
-                updateJobStatus(job.id, TranscodeJobStatus.COMPLETED)
+                transcodeJobDao.deleteJobById(job.id)
+                _progressMap.value = _progressMap.value - job.id
             } else {
-                updateJobStatus(
+                transcodeJobDao.updateJobStatus(
                     job.id,
                     TranscodeJobStatus.FAILED,
                     errorMessage = "FFmpeg exit code: ${session.returnCode}"
@@ -244,7 +296,7 @@ class TranscodeQueueManager @Inject constructor(
             }
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            updateJobStatus(job.id, TranscodeJobStatus.FAILED, errorMessage = e.message)
+            transcodeJobDao.updateJobStatus(job.id, TranscodeJobStatus.FAILED, errorMessage = e.message)
             if (outputFile.exists()) outputFile.delete()
         } finally {
             if (wakeLock.isHeld) {
@@ -255,24 +307,16 @@ class TranscodeQueueManager @Inject constructor(
         }
     }
 
-    private fun updateJobStatus(jobId: String, status: TranscodeJobStatus, errorMessage: String? = null) {
-        _jobs.value = _jobs.value.mapNotNull { job ->
-            if (job.id == jobId) {
-                if (status == TranscodeJobStatus.COMPLETED) {
-                    null
-                } else {
-                    job.copy(status = status, errorMessage = errorMessage ?: job.errorMessage)
-                }
-            } else job
-        }
-    }
-
     private fun updateJobProgress(jobId: String, progress: Float, speed: String, eta: String, etaSeconds: Long) {
-        _jobs.value = _jobs.value.map { job ->
-            if (job.id == jobId) {
-                job.copy(progress = progress, speed = speed, eta = eta, etaSeconds = etaSeconds)
-            } else job
-        }
+        _progressMap.value = _progressMap.value + (
+            jobId to TranscodeJobProgress(
+                jobId = jobId,
+                progress = progress,
+                speed = speed,
+                eta = eta,
+                etaSeconds = etaSeconds
+            )
+        )
     }
 
     private fun getMediaDuration(file: File): Long {
