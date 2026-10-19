@@ -55,6 +55,33 @@ class TranscodeQueueManager @Inject constructor(
         processQueue()
     }
 
+    fun cancelJob(jobId: String) {
+        val task = runningJobTasks.remove(jobId)
+        task?.cancel()
+        val targetJob = _jobs.value.find { it.id == jobId }
+        if (targetJob != null && targetJob.outputFile.exists()) {
+            try { targetJob.outputFile.delete() } catch (_: Throwable) {}
+        }
+        _jobs.value = _jobs.value.filter { it.id != jobId }
+        processQueue()
+    }
+
+    fun retryJob(jobId: String) {
+        _jobs.value = _jobs.value.map { job ->
+            if (job.id == jobId) {
+                job.copy(
+                    status = TranscodeJobStatus.QUEUED,
+                    progress = 0f,
+                    speed = "0.0x",
+                    eta = "--:--",
+                    errorMessage = null
+                )
+            } else job
+        }
+        transcodeServiceLauncher.startService()
+        processQueue()
+    }
+
     private fun processQueue() {
         scope.launch {
             val settings = appSettingsRepository.transcodeSettings.first()

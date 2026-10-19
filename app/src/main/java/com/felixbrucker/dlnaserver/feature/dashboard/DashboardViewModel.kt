@@ -124,6 +124,15 @@ class DashboardViewModel @Inject constructor(
         scanSharedDirectories()
     }
 
+    fun cancelTranscodeJob(jobId: String) {
+        transcodeQueueManager.cancelJob(jobId)
+        scanSharedDirectories()
+    }
+
+    fun retryTranscodeJob(jobId: String) {
+        transcodeQueueManager.retryJob(jobId)
+    }
+
     private fun scanSharedDirectories() {
         scanJob?.cancel()
         val query = submittedSearchQuery.value.trim()

@@ -19,7 +19,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -98,7 +100,11 @@ fun DashboardScreen(
             onDismissRequest = { viewModel.setBottomSheetOpen(false) },
             sheetState = sheetState
         ) {
-            TranscodeQueueBottomSheetContent(jobs = uiState.activeTranscodeJobs)
+            TranscodeQueueBottomSheetContent(
+                jobs = uiState.activeTranscodeJobs,
+                onCancelClick = { viewModel.cancelTranscodeJob(it) },
+                onRetryClick = { viewModel.retryTranscodeJob(it) }
+            )
         }
     }
 
@@ -116,9 +122,14 @@ fun DashboardScreen(
                     }
 
                     if (uiState.activeTranscodeJobs.isNotEmpty()) {
-                        val runningJob = uiState.activeTranscodeJobs.firstOrNull { it.status == TranscodeJobStatus.RUNNING }
-                        val progress = runningJob?.progress ?: 0f
-                        val eta = runningJob?.eta ?: "--:--"
+                        val runningOrQueued = uiState.activeTranscodeJobs.filter {
+                            it.status == TranscodeJobStatus.RUNNING || it.status == TranscodeJobStatus.QUEUED
+                        }
+                        val totalProgress = if (runningOrQueued.isNotEmpty()) {
+                            runningOrQueued.map { it.progress }.sum() / runningOrQueued.size
+                        } else 0f
+
+                        val totalEtaStr = calculateTotalEtaString(runningOrQueued)
 
                         IconButton(onClick = { viewModel.setBottomSheetOpen(true) }) {
                             Box(
@@ -126,12 +137,12 @@ fun DashboardScreen(
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 CircularProgressIndicator(
-                                    progress = { if (progress > 0) progress else 0.1f },
+                                    progress = { if (totalProgress > 0) totalProgress else 0.1f },
                                     modifier = Modifier.fillMaxSize(),
                                     strokeWidth = 3.dp
                                 )
                                 Text(
-                                    text = eta,
+                                    text = totalEtaStr,
                                     fontSize = 8.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -170,6 +181,26 @@ fun DashboardScreen(
             }
         }
     }
+}
+
+private fun calculateTotalEtaString(jobs: List<TranscodeJob>): String {
+    var totalSeconds = 0L
+    var hasValidEta = false
+    for (job in jobs) {
+        if (job.status == TranscodeJobStatus.RUNNING && job.eta != "--:--") {
+            val parts = job.eta.split(":")
+            if (parts.size == 2) {
+                val mins = parts[0].toLongOrNull() ?: 0L
+                val secs = parts[1].toLongOrNull() ?: 0L
+                totalSeconds += (mins * 60 + secs)
+                hasValidEta = true
+            }
+        }
+    }
+    if (!hasValidEta) return "--:--"
+    val m = totalSeconds / 60
+    val s = totalSeconds % 60
+    return String.format("%02d:%02d", m, s)
 }
 
 @Composable
@@ -313,7 +344,9 @@ private fun MediaFileItemCard(
 
 @Composable
 private fun TranscodeQueueBottomSheetContent(
-    jobs: List<TranscodeJob>
+    jobs: List<TranscodeJob>,
+    onCancelClick: (String) -> Unit,
+    onRetryClick: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -339,7 +372,11 @@ private fun TranscodeQueueBottomSheetContent(
                 modifier = Modifier.height(260.dp)
             ) {
                 items(items = jobs, key = { it.id }) { job ->
-                    TranscodeJobRow(job = job)
+                    TranscodeJobRow(
+                        job = job,
+                        onCancelClick = { onCancelClick(job.id) },
+                        onRetryClick = { onRetryClick(job.id) }
+                    )
                 }
             }
         }
@@ -347,7 +384,11 @@ private fun TranscodeQueueBottomSheetContent(
 }
 
 @Composable
-private fun TranscodeJobRow(job: TranscodeJob) {
+private fun TranscodeJobRow(
+    job: TranscodeJob,
+    onCancelClick: () -> Unit,
+    onRetryClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
@@ -364,15 +405,31 @@ private fun TranscodeJobRow(job: TranscodeJob) {
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = job.status.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when (job.status) {
-                        TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.primary
-                        TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.outline
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = job.status.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = when (job.status) {
+                            TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.primary
+                            TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.outline
+                        }
+                    )
+                    if (job.status == TranscodeJobStatus.FAILED) {
+                        IconButton(onClick = onRetryClick) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retry Job"
+                            )
+                        }
                     }
-                )
+                    IconButton(onClick = onCancelClick) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cancel Job"
+                        )
+                    }
+                }
             }
 
             if (job.status == TranscodeJobStatus.RUNNING) {
