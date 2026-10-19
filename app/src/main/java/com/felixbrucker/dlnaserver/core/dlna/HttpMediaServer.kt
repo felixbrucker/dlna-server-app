@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import kotlinx.coroutines.CoroutineScope
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.BufferedOutputStream
 import java.io.BufferedReader
 import java.io.File
@@ -18,11 +20,14 @@ import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class HttpMediaServer(
-    private val port: Int = 8192,
-    private val getSharedDirectories: () -> List<SharedDirectory>
+@Singleton
+class HttpMediaServer @Inject constructor(
+    private val sharedDirectoryRepository: SharedDirectoryRepository
 ) {
+    private val port: Int = 8192
     private var serverSocket: ServerSocket? = null
     private var serverJob: Job? = null
 
@@ -32,6 +37,12 @@ class HttpMediaServer(
 
     @Volatile
     private var isRunning = false
+
+    private fun getSharedDirectories(): List<SharedDirectory> {
+        return runBlocking(Dispatchers.IO) {
+            sharedDirectoryRepository.getEnabledDirectoriesSync()
+        }
+    }
 
     fun start(ipAddress: String, scope: CoroutineScope) {
         if (isRunning) return

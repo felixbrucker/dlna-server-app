@@ -1,13 +1,11 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
-import android.content.Context
 import android.media.MediaMetadataRetriever
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
-import com.felixbrucker.dlnaserver.feature.service.TranscodeService
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,8 +25,8 @@ import kotlin.coroutines.resume
 
 @Singleton
 class TranscodeQueueManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val appSettingsRepository: AppSettingsRepository
+    private val appSettingsRepository: AppSettingsRepository,
+    private val transcodeServiceLauncher: TranscodeServiceLauncher
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _jobs = MutableStateFlow<List<TranscodeJob>>(emptyList())
@@ -53,7 +51,7 @@ class TranscodeQueueManager @Inject constructor(
         )
 
         _jobs.value = _jobs.value + job
-        TranscodeService.startService(context)
+        transcodeServiceLauncher.startService()
         processQueue()
     }
 

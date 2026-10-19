@@ -2,11 +2,6 @@ package com.felixbrucker.dlnaserver.feature.dashboard
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,12 +15,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,23 +32,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
 import com.felixbrucker.dlnaserver.core.util.PermissionUtils
@@ -71,20 +69,37 @@ fun DashboardScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        val granted = PermissionUtils.hasStoragePermission(context)
+        val granted = PermissionUtils.hasAllPermissions(context)
         viewModel.setPermissionGranted(granted)
+        if (!granted) {
+            PermissionUtils.openAppSettings(context)
+        }
     }
 
     LaunchedEffect(Unit) {
-        val granted = PermissionUtils.hasStoragePermission(context)
+        val granted = PermissionUtils.hasAllPermissions(context)
         viewModel.setPermissionGranted(granted)
     }
 
-    if (uiState.isTranscodePopoverOpen) {
-        TranscodeQueuePopoverDialog(
-            jobs = uiState.activeTranscodeJobs,
-            onDismiss = { viewModel.togglePopover() }
+    if (uiState.isSearchDialogOpen) {
+        SearchFileDialog(
+            uiState = uiState,
+            onSearchInputChange = { viewModel.onSearchInputChanged(it) },
+            onClearInput = { viewModel.clearSearchInput() },
+            onSubmitSearch = { viewModel.submitSearch() },
+            onTranscodeClick = { viewModel.enqueueTranscode(it.file) },
+            onDismiss = { viewModel.setSearchDialogOpen(false) }
         )
+    }
+
+    if (uiState.isTranscodeBottomSheetOpen) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.setBottomSheetOpen(false) },
+            sheetState = sheetState
+        ) {
+            TranscodeQueueBottomSheetContent(jobs = uiState.activeTranscodeJobs)
+        }
     }
 
     Scaffold(
@@ -93,34 +108,34 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("DLNA Media Server") },
                 actions = {
-                    val hasRunningOrQueued = uiState.activeTranscodeJobs.any {
-                        it.status == TranscodeJobStatus.RUNNING || it.status == TranscodeJobStatus.QUEUED
+                    IconButton(onClick = { viewModel.setSearchDialogOpen(true) }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search Video Files"
+                        )
                     }
-                    val runningJob = uiState.activeTranscodeJobs.firstOrNull { it.status == TranscodeJobStatus.RUNNING }
 
-                    IconButton(onClick = { viewModel.togglePopover() }) {
-                        if (hasRunningOrQueued) {
-                            val progress = runningJob?.progress ?: 0f
-                            CircularProgressIndicator(
-                                progress = { if (progress > 0) progress else 0.2f },
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 3.dp
-                            )
-                        } else {
-                            val infiniteTransition = rememberInfiniteTransition(label = "idle_spin")
-                            val rotation by infiniteTransition.animateFloat(
-                                initialValue = 0f,
-                                targetValue = 360f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(4000, easing = LinearEasing)
-                                ),
-                                label = "rotation"
-                            )
-                            Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = "Transcode Queue",
-                                modifier = Modifier.rotate(if (uiState.activeTranscodeJobs.isNotEmpty()) rotation else 0f)
-                            )
+                    if (uiState.activeTranscodeJobs.isNotEmpty()) {
+                        val runningJob = uiState.activeTranscodeJobs.firstOrNull { it.status == TranscodeJobStatus.RUNNING }
+                        val progress = runningJob?.progress ?: 0f
+                        val eta = runningJob?.eta ?: "--:--"
+
+                        IconButton(onClick = { viewModel.setBottomSheetOpen(true) }) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = { if (progress > 0) progress else 0.1f },
+                                    modifier = Modifier.fillMaxSize(),
+                                    strokeWidth = 3.dp
+                                )
+                                Text(
+                                    text = eta,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
 
@@ -152,71 +167,96 @@ fun DashboardScreen(
                     serverInfo = uiState.serverInfo,
                     onToggleServer = { viewModel.toggleServer() }
                 )
+            }
+        }
+    }
+}
 
-                Row(
+@Composable
+private fun SearchFileDialog(
+    uiState: DashboardUiState,
+    onSearchInputChange: (String) -> Unit,
+    onClearInput: () -> Unit,
+    onSubmitSearch: () -> Unit,
+    onTranscodeClick: (DashboardMediaFileItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Search Video Files") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.searchInput,
+                    onValueChange = onSearchInputChange,
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChanged(it) },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Search video files...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { viewModel.rescanFiles() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Rescan Files")
+                    placeholder = { Text("Enter video filename...") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSubmitSearch() }),
+                    trailingIcon = {
+                        if (uiState.searchInput.isNotEmpty()) {
+                            IconButton(onClick = onClearInput) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
                     }
+                )
+
+                Button(
+                    onClick = onSubmitSearch,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Search")
                 }
 
-                if (uiState.searchQuery.isBlank()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Type in the search box to find video files across shared directories.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                if (uiState.isScanningFiles) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
+                } else if (uiState.submittedSearchQuery.isBlank()) {
+                    Text(
+                        text = "Enter a search term and tap Search to scan shared directories recursively.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
                 } else if (uiState.mediaFiles.isEmpty()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No video files found matching \"${uiState.searchQuery}\".",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        text = "No video files found matching \"${uiState.submittedSearchQuery}\".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
                 } else {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.height(280.dp)
                     ) {
                         items(items = uiState.mediaFiles, key = { it.file.absolutePath }) { item ->
                             MediaFileItemCard(
                                 item = item,
-                                onTranscodeClick = { viewModel.enqueueTranscode(item.file) }
+                                onTranscodeClick = { onTranscodeClick(item) }
                             )
                         }
                     }
                 }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
         }
-    }
+    )
 }
 
 @Composable
@@ -272,53 +312,34 @@ private fun MediaFileItemCard(
 }
 
 @Composable
-private fun TranscodeQueuePopoverDialog(
-    jobs: List<TranscodeJob>,
-    onDismiss: () -> Unit
+private fun TranscodeQueueBottomSheetContent(
+    jobs: List<TranscodeJob>
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "Transcode Queue",
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        if (jobs.isEmpty()) {
+            Text(
+                text = "No active or queued transcode jobs.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.height(260.dp)
             ) {
-                Text(
-                    text = "Transcode Jobs",
-                    style = MaterialTheme.typography.titleLarge
-                )
-
-                if (jobs.isEmpty()) {
-                    Text(
-                        text = "No active or queued transcode jobs.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.height(260.dp)
-                    ) {
-                        items(items = jobs, key = { it.id }) { job ->
-                            TranscodeJobRow(job = job)
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Close")
-                    }
+                items(items = jobs, key = { it.id }) { job ->
+                    TranscodeJobRow(job = job)
                 }
             }
         }

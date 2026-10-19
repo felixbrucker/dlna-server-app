@@ -31,9 +31,11 @@ class DashboardViewModel @Inject constructor(
     private val transcodeQueueManager: TranscodeQueueManager
 ) : ViewModel() {
 
-    private val searchQuery = MutableStateFlow("")
+    private val searchInput = MutableStateFlow("")
+    private val submittedSearchQuery = MutableStateFlow("")
+    private val isSearchDialogOpen = MutableStateFlow(false)
+    private val isBottomSheetOpen = MutableStateFlow(false)
     private val permissionGranted = MutableStateFlow(true)
-    private val isPopoverOpen = MutableStateFlow(false)
     private val scannedFiles = MutableStateFlow<List<DashboardMediaFileItem>>(emptyList())
     private val isScanning = MutableStateFlow(false)
     private var scanJob: Job? = null
@@ -42,19 +44,23 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         dlnaServerEngine.serverInfo,
         permissionGranted,
-        searchQuery,
+        searchInput,
+        submittedSearchQuery,
+        isSearchDialogOpen,
         scannedFiles,
         transcodeQueueManager.jobs,
-        isPopoverOpen,
+        isBottomSheetOpen,
         isScanning
     ) { args: Array<Any?> ->
         val serverInfo = args[0] as DlnaServerInfo
         val hasPerm = args[1] as Boolean
-        val query = args[2] as String
-        val files = args[3] as List<DashboardMediaFileItem>
-        val jobs = args[4] as List<TranscodeJob>
-        val popoverOpen = args[5] as Boolean
-        val scanning = args[6] as Boolean
+        val sInput = args[2] as String
+        val sSubmitted = args[3] as String
+        val searchOpen = args[4] as Boolean
+        val files = args[5] as List<DashboardMediaFileItem>
+        val jobs = args[6] as List<TranscodeJob>
+        val bottomSheetOpen = args[7] as Boolean
+        val scanning = args[8] as Boolean
 
         val visibleJobs = jobs.filter { job ->
             job.status == TranscodeJobStatus.PENDING ||
@@ -66,10 +72,12 @@ class DashboardViewModel @Inject constructor(
         DashboardUiState(
             serverInfo = serverInfo,
             permissionGranted = hasPerm,
-            searchQuery = query,
+            searchInput = sInput,
+            submittedSearchQuery = sSubmitted,
+            isSearchDialogOpen = searchOpen,
             mediaFiles = files,
             activeTranscodeJobs = visibleJobs,
-            isTranscodePopoverOpen = popoverOpen,
+            isTranscodeBottomSheetOpen = bottomSheetOpen,
             isScanningFiles = scanning
         )
     }.stateIn(
@@ -78,9 +86,25 @@ class DashboardViewModel @Inject constructor(
         initialValue = DashboardUiState()
     )
 
-    fun onSearchQueryChanged(newQuery: String) {
-        searchQuery.value = newQuery
+    fun onSearchInputChanged(newInput: String) {
+        searchInput.value = newInput
+    }
+
+    fun clearSearchInput() {
+        searchInput.value = ""
+    }
+
+    fun submitSearch() {
+        submittedSearchQuery.value = searchInput.value.trim()
         scanSharedDirectories()
+    }
+
+    fun setSearchDialogOpen(isOpen: Boolean) {
+        isSearchDialogOpen.value = isOpen
+    }
+
+    fun setBottomSheetOpen(isOpen: Boolean) {
+        isBottomSheetOpen.value = isOpen
     }
 
     fun toggleServer() {
@@ -93,13 +117,6 @@ class DashboardViewModel @Inject constructor(
 
     fun setPermissionGranted(granted: Boolean) {
         permissionGranted.value = granted
-        if (granted && searchQuery.value.isNotBlank()) {
-            scanSharedDirectories()
-        }
-    }
-
-    fun togglePopover() {
-        isPopoverOpen.value = !isPopoverOpen.value
     }
 
     fun enqueueTranscode(file: File) {
@@ -107,13 +124,9 @@ class DashboardViewModel @Inject constructor(
         scanSharedDirectories()
     }
 
-    fun rescanFiles() {
-        scanSharedDirectories()
-    }
-
     private fun scanSharedDirectories() {
         scanJob?.cancel()
-        val query = searchQuery.value.trim()
+        val query = submittedSearchQuery.value.trim()
         if (query.isBlank()) {
             scannedFiles.value = emptyList()
             isScanning.value = false
@@ -161,7 +174,7 @@ class DashboardViewModel @Inject constructor(
                 }
             }
 
-            scannedFiles.value = mediaItems
+            scannedFiles.value = mediaItems.sortedBy { it.filename.lowercase() }
             isScanning.value = false
         }
     }

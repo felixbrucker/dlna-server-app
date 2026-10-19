@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.feature.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,6 +52,8 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onNavigateBack)
+
     val uiState by viewModel.uiState.collectAsState()
     var showFolderPicker by remember { mutableStateOf(false) }
 
@@ -147,7 +150,7 @@ fun SettingsScreen(
                             value = currentOption.getDisplayLabel(hasHw),
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Transcode Codec") },
+                            label = { Text("Codec") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = codecExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()

@@ -1,6 +1,5 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
-import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import com.felixbrucker.dlnaserver.core.util.NetworkUtils
@@ -12,17 +11,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class DlnaServerEngine @Inject constructor(
-    private val sharedDirectoryRepository: SharedDirectoryRepository
+    private val httpMediaServer: HttpMediaServer
 ) {
 
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var httpMediaServer: HttpMediaServer? = null
     private var ssdpServer: SsdpServer? = null
 
     private val _serverInfo = MutableStateFlow(DlnaServerInfo())
@@ -45,24 +42,15 @@ class DlnaServerEngine @Inject constructor(
 
         try {
             val port = 8192
-            val httpServer = HttpMediaServer(
-                port = port,
-                getSharedDirectories = {
-                    runBlocking(Dispatchers.IO) {
-                        sharedDirectoryRepository.getEnabledDirectoriesSync()
-                    }
-                }
-            )
             val ssdp = SsdpServer(port = port)
 
-            httpServer.start(netIf.ipAddress, engineScope)
+            httpMediaServer.start(netIf.ipAddress, engineScope)
             ssdp.start(netIf.ipAddress, netIf.name, engineScope)
 
-            httpMediaServer = httpServer
             ssdpServer = ssdp
 
             engineScope.launch {
-                httpServer.connectedClients.collect { clients ->
+                httpMediaServer.connectedClients.collect { clients ->
                     _serverInfo.value = _serverInfo.value.copy(
                         connectedDeviceCount = clients.size
                     )
@@ -91,11 +79,10 @@ class DlnaServerEngine @Inject constructor(
     @Synchronized
     fun stopServer() {
         try {
-            httpMediaServer?.stop()
+            httpMediaServer.stop()
             ssdpServer?.stop()
         } catch (_: Exception) {
         }
-        httpMediaServer = null
         ssdpServer = null
 
         _serverInfo.value = DlnaServerInfo(

@@ -43,10 +43,10 @@ class TranscodeService : Service() {
             overallProgress = 0
         )
 
-        val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
-        } else {
-            0
+        val foregroundType = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            else -> 0
         }
 
         if (foregroundType != 0) {
@@ -75,7 +75,6 @@ class TranscodeService : Service() {
 
                 val runningCount = activeJobs.count { it.status == TranscodeJobStatus.RUNNING }
                 val queuedCount = activeJobs.count { it.status == TranscodeJobStatus.QUEUED }
-                val totalActive = activeJobs.size
 
                 val title = "Transcoding ($runningCount running, $queuedCount queued)"
 
@@ -150,10 +149,5 @@ class TranscodeService : Service() {
     companion object {
         private const val CHANNEL_ID = "transcode_service_channel"
         private const val NOTIFICATION_ID = 1002
-
-        fun startService(context: Context) {
-            val intent = Intent(context, TranscodeService::class.java)
-            context.startForegroundService(intent)
-        }
     }
 }

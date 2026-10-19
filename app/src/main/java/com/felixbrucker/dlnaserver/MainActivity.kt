@@ -43,7 +43,6 @@ class MainActivity : ComponentActivity() {
                             SettingsScreen(
                                 viewModel = settingsViewModel,
                                 onNavigateBack = {
-                                    dashboardViewModel.rescanFiles()
                                     currentScreen = "dashboard"
                                 }
                             )

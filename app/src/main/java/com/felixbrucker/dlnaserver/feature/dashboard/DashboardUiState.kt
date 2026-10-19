@@ -16,9 +16,11 @@ data class DashboardMediaFileItem(
 data class DashboardUiState(
     val serverInfo: DlnaServerInfo = DlnaServerInfo(),
     val permissionGranted: Boolean = true,
-    val searchQuery: String = "",
+    val searchInput: String = "",
+    val submittedSearchQuery: String = "",
+    val isSearchDialogOpen: Boolean = false,
     val mediaFiles: List<DashboardMediaFileItem> = emptyList(),
     val activeTranscodeJobs: List<TranscodeJob> = emptyList(),
-    val isTranscodePopoverOpen: Boolean = false,
+    val isTranscodeBottomSheetOpen: Boolean = false,
     val isScanningFiles: Boolean = false
 )

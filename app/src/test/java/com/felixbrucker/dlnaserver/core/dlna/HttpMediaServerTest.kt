@@ -1,6 +1,9 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import io.mockk.coEvery
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -21,6 +24,7 @@ class HttpMediaServerTest {
 
     private lateinit var tempFile: File
     private lateinit var sharedDir: SharedDirectory
+    private lateinit var sharedDirectoryRepositoryMock: SharedDirectoryRepository
     private lateinit var server: HttpMediaServer
     private val testDispatcher = UnconfinedTestDispatcher()
     private val testScope = TestScope(testDispatcher)
@@ -36,6 +40,8 @@ class HttpMediaServerTest {
             path = tempFile.parentFile?.absolutePath ?: tempFile.absolutePath,
             displayName = "Test"
         )
+        sharedDirectoryRepositoryMock = mockk(relaxed = true)
+        coEvery { sharedDirectoryRepositoryMock.getEnabledDirectoriesSync() } returns listOf(sharedDir)
     }
 
     @After
@@ -48,11 +54,8 @@ class HttpMediaServerTest {
         }
     }
 
-    private fun startServerForPort(port: Int): HttpMediaServer {
-        val s = HttpMediaServer(
-            port = port,
-            getSharedDirectories = { listOf(sharedDir) }
-        )
+    private fun startServer(): HttpMediaServer {
+        val s = HttpMediaServer(sharedDirectoryRepositoryMock)
         s.start("127.0.0.1", testScope)
         return s
     }
@@ -74,8 +77,8 @@ class HttpMediaServerTest {
 
     @Test
     fun testClientTrackedWhenRequestingMediaFile() = runTest {
-        val port = 8195
-        server = startServerForPort(port)
+        val port = 8192
+        server = startServer()
         val socket = createConnectedSocket(port)
         val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
         val encodedPath = ContentDirectoryXml.encodePath(tempFile.absolutePath)
