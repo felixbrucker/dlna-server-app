@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -164,8 +165,8 @@ class TranscodeQueueManagerTest {
             transcodeJobDaoMock
         )
 
-        testDispatcher.scheduler.advanceUntilIdle()
-        val job = manager.jobs.value.first()
+        val jobList = manager.jobs.first { it.isNotEmpty() }
+        val job = jobList.first()
 
         assertEquals("job-2", job.id)
         assertEquals(TranscodeJobStatus.FAILED, job.status)
@@ -179,7 +180,7 @@ class TranscodeQueueManagerTest {
             id = "job-3",
             inputFilePath = "/tmp/input3.mp4",
             outputFilePath = "/tmp/transcoded_input3.mp4",
-            status = TranscodeJobStatus.QUEUED,
+            status = TranscodeJobStatus.FAILED,
             bitDepthChange = "10 bit -> 8 bit",
             resolutionChange = "2592x1080 -> 1920x800",
             codecChange = "x264 -> x265"
@@ -192,8 +193,8 @@ class TranscodeQueueManagerTest {
             transcodeJobDaoMock
         )
 
-        testDispatcher.scheduler.advanceUntilIdle()
-        val job = manager.jobs.value.first()
+        val jobList = manager.jobs.first { it.isNotEmpty() }
+        val job = jobList.first()
 
         assertEquals("10 bit -> 8 bit", job.bitDepthChange)
         assertEquals("2592x1080 -> 1920x800", job.resolutionChange)

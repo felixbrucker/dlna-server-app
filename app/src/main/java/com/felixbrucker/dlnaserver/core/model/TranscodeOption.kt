@@ -1,5 +1,7 @@
 package com.felixbrucker.dlnaserver.core.model
 
+import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
+
 enum class TranscodeOption(
     val id: String,
     val codecName: String,
@@ -64,15 +66,30 @@ enum class TranscodeOption(
         isHardware = true
     );
 
+    val isHardwareSupported: Boolean by lazy {
+        if (isHardware) {
+            HardwareCodecUtils.hasHardwareEncoderSupport(mimeType)
+        } else {
+            true
+        }
+    }
+
+    val is10BitSupported: Boolean by lazy {
+        if (isHardware) {
+            HardwareCodecUtils.has10BitEncoderSupport(mimeType)
+        } else {
+            true
+        }
+    }
+
     companion object {
+        fun getDefaultOption(): TranscodeOption {
+            val hwOrder = listOf(X265_HW, X264_HW, AV1_HW, VP9_HW)
+            return hwOrder.firstOrNull { it.isHardwareSupported } ?: X265_SW
+        }
+
         fun fromId(id: String): TranscodeOption {
-            return entries.firstOrNull { it.id == id } ?: when (id) {
-                "X264" -> X264_SW
-                "X265" -> X265_SW
-                "VP9" -> VP9_SW
-                "AV1" -> AV1_SW
-                else -> X265_SW
-            }
+            return entries.firstOrNull { it.id == id } ?: getDefaultOption()
         }
     }
 }

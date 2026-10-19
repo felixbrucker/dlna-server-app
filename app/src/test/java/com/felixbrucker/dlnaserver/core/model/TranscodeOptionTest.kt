@@ -17,21 +17,19 @@ class TranscodeOptionTest {
     }
 
     @Test
-    fun testFromIdLegacyIdReturnsSwOption() {
-        val id = "X264"
-
-        val option = TranscodeOption.fromId(id)
-
-        assertEquals(TranscodeOption.X264_SW, option)
-    }
-
-    @Test
-    fun testFromIdUnknownReturnsX265SwDefault() {
+    fun testFromIdUnknownReturnsDefaultOption() {
         val id = "UNKNOWN_ID"
 
         val option = TranscodeOption.fromId(id)
 
-        assertEquals(TranscodeOption.X265_SW, option)
+        assertEquals(TranscodeOption.getDefaultOption(), option)
+    }
+
+    @Test
+    fun testGetDefaultOptionReturnsOption() {
+        val defaultOption = TranscodeOption.getDefaultOption()
+
+        assertTrue(defaultOption in TranscodeOption.entries)
     }
 
     @Test
@@ -44,5 +42,16 @@ class TranscodeOptionTest {
 
         assertTrue(isHw)
         assertFalse(isSwHw)
+    }
+
+    @Test
+    fun testSoftwareOptionsAlwaysSupported() {
+        val swOption = TranscodeOption.X265_SW
+
+        val hwSupported = swOption.isHardwareSupported
+        val tenBitSupported = swOption.is10BitSupported
+
+        assertTrue(hwSupported)
+        assertTrue(tenBitSupported)
     }
 }

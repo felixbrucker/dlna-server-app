@@ -8,7 +8,6 @@ import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
-import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
 import kotlinx.coroutines.CoroutineScope
@@ -125,18 +124,11 @@ class TranscodeQueueManager @Inject constructor(
             val option = settings.option
 
             val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
-            val encoderSupports10Bit = if (option.isHardware) {
-                HardwareCodecUtils.has10BitEncoderSupport(option)
-            } else {
-                true
-            }
-            val isTarget10Bit = isSource10Bit && encoderSupports10Bit
+            val isTarget10Bit = isSource10Bit && option.is10BitSupported
 
-            val bitDepthChange = when {
-                isSource10Bit && !isTarget10Bit -> "10 bit -> 8 bit"
-                !isSource10Bit && isTarget10Bit -> "8 bit -> 10 bit"
-                else -> null
-            }
+            val bitDepthChange = if (isSource10Bit && !isTarget10Bit) {
+                "10 bit -> 8 bit"
+            } else null
 
             val sourceDims = MediaMetadataUtils.getVideoDimensions(inputFile)
             val resolutionChange = if (sourceDims != null) {
@@ -233,12 +225,7 @@ class TranscodeQueueManager @Inject constructor(
 
         val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
         val hasHw = option.isHardware
-        val encoderSupports10Bit = if (hasHw) {
-            HardwareCodecUtils.has10BitEncoderSupport(option)
-        } else {
-            true
-        }
-        val is10BitEncoding = isSource10Bit && encoderSupports10Bit
+        val is10BitEncoding = isSource10Bit && option.is10BitSupported
 
         val videoEncoder = option.ffmpegEncoder
 

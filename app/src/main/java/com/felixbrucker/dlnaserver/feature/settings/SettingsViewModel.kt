@@ -8,7 +8,6 @@ import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
-import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,23 +30,11 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val supportedOptionsList: List<TranscodeOption> by lazy {
-        TranscodeOption.entries.filter { option ->
-            if (option.isHardware) {
-                HardwareCodecUtils.hasHardwareEncoderSupport(option.mimeType)
-            } else {
-                true
-            }
-        }
+        TranscodeOption.entries.filter { it.isHardwareSupported }
     }
 
     private val tenBitSupportMapLazy: Map<TranscodeOption, Boolean> by lazy {
-        TranscodeOption.entries.associateWith { option ->
-            if (option.isHardware) {
-                HardwareCodecUtils.has10BitEncoderSupport(option.mimeType)
-            } else {
-                true
-            }
-        }
+        TranscodeOption.entries.associateWith { it.is10BitSupported }
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
