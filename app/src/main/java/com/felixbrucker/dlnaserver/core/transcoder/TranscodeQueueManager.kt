@@ -1,12 +1,14 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.content.Context
 import android.media.MediaMetadataRetriever
-import android.util.Log
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
+import com.felixbrucker.dlnaserver.feature.service.TranscodeService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,6 +28,7 @@ import kotlin.coroutines.resume
 
 @Singleton
 class TranscodeQueueManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val appSettingsRepository: AppSettingsRepository,
     private val hardwareCodecUtils: HardwareCodecUtils
 ) {
@@ -52,6 +55,7 @@ class TranscodeQueueManager @Inject constructor(
         )
 
         _jobs.value = _jobs.value + job
+        TranscodeService.startService(context)
         processQueue()
     }
 
@@ -134,8 +138,6 @@ class TranscodeQueueManager @Inject constructor(
             add(outputFile.absolutePath)
         }.toTypedArray()
 
-        var startTimeMs = System.currentTimeMillis()
-
         try {
             val session = suspendCancellableCoroutine { continuation ->
                 val asyncSession = FFmpegKit.executeWithArgumentsAsync(
@@ -143,9 +145,7 @@ class TranscodeQueueManager @Inject constructor(
                     { completedSession ->
                         continuation.resume(completedSession)
                     },
-                    { logs ->
-                        // Optional log callback
-                    },
+                    { _ -> },
                     { statistics ->
                         if (statistics != null) {
                             val timeMs = statistics.time

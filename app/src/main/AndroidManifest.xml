@@ -42,6 +42,15 @@
                 android:value="Exposes selected directories over DLNA/UPnP network protocol" />
         </service>
 
+        <service
+            android:name=".feature.service.TranscodeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Processes video file transcoding in background queue" />
+        </service>
+
     </application>
 
 </manifest>
