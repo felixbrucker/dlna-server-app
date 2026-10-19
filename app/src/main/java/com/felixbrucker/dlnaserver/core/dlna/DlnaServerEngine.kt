@@ -1,8 +1,8 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
-import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,24 +12,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DlnaServerEngine @Inject constructor() {
+class DlnaServerEngine @Inject constructor(
+    private val sharedDirectoryRepository: SharedDirectoryRepository
+) {
 
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var httpMediaServer: HttpMediaServer? = null
     private var ssdpServer: SsdpServer? = null
 
-    private var activeSharedDirectoriesProvider: (() -> List<SharedDirectory>)? = null
-
     private val _serverInfo = MutableStateFlow(DlnaServerInfo())
     val serverInfo: StateFlow<DlnaServerInfo> = _serverInfo.asStateFlow()
-
-    fun setSharedDirectoriesProvider(provider: () -> List<SharedDirectory>) {
-        this.activeSharedDirectoriesProvider = provider
-    }
 
     @Synchronized
     fun startServer(): Boolean {
@@ -50,7 +47,11 @@ class DlnaServerEngine @Inject constructor() {
             val port = 8192
             val httpServer = HttpMediaServer(
                 port = port,
-                getSharedDirectories = { activeSharedDirectoriesProvider?.invoke() ?: emptyList() }
+                getSharedDirectories = {
+                    runBlocking(Dispatchers.IO) {
+                        sharedDirectoryRepository.getEnabledDirectoriesSync()
+                    }
+                }
             )
             val ssdp = SsdpServer(port = port)
 

@@ -1,19 +1,19 @@
 package com.felixbrucker.dlnaserver.feature.dashboard
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.felixbrucker.dlnaserver.core.data.repository.DlnaRepository
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
+import com.felixbrucker.dlnaserver.core.dlna.DlnaServerEngine
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
-import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeQueueManager
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
+import com.felixbrucker.dlnaserver.feature.service.DlnaServiceLauncher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +25,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val dlnaRepository: DlnaRepository,
+    private val dlnaServerEngine: DlnaServerEngine,
+    private val dlnaServiceLauncher: DlnaServiceLauncher,
     private val sharedDirectoryRepository: SharedDirectoryRepository,
     private val transcodeQueueManager: TranscodeQueueManager
 ) : ViewModel() {
@@ -35,18 +36,11 @@ class DashboardViewModel @Inject constructor(
     private val isPopoverOpen = MutableStateFlow(false)
     private val scannedFiles = MutableStateFlow<List<DashboardMediaFileItem>>(emptyList())
     private val isScanning = MutableStateFlow(false)
-
-    init {
-        viewModelScope.launch {
-            sharedDirectoryRepository.allDirectories.collect {
-                scanSharedDirectories()
-            }
-        }
-    }
+    private var scanJob: Job? = null
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<DashboardUiState> = combine(
-        dlnaRepository.serverInfo,
+        dlnaServerEngine.serverInfo,
         permissionGranted,
         searchQuery,
         scannedFiles,
@@ -62,12 +56,6 @@ class DashboardViewModel @Inject constructor(
         val popoverOpen = args[5] as Boolean
         val scanning = args[6] as Boolean
 
-        val filteredFiles = if (query.isBlank()) {
-            files
-        } else {
-            files.filter { it.filename.contains(query, ignoreCase = true) }
-        }
-
         val visibleJobs = jobs.filter { job ->
             job.status == TranscodeJobStatus.PENDING ||
                     job.status == TranscodeJobStatus.QUEUED ||
@@ -79,7 +67,7 @@ class DashboardViewModel @Inject constructor(
             serverInfo = serverInfo,
             permissionGranted = hasPerm,
             searchQuery = query,
-            mediaFiles = filteredFiles,
+            mediaFiles = files,
             activeTranscodeJobs = visibleJobs,
             isTranscodePopoverOpen = popoverOpen,
             isScanningFiles = scanning
@@ -92,19 +80,20 @@ class DashboardViewModel @Inject constructor(
 
     fun onSearchQueryChanged(newQuery: String) {
         searchQuery.value = newQuery
+        scanSharedDirectories()
     }
 
-    fun toggleServer(context: Context) {
-        if (uiState.value.serverInfo.status == ServerStatus.RUNNING) {
-            dlnaRepository.stopServerService(context)
+    fun toggleServer() {
+        if (uiState.value.serverInfo.status == com.felixbrucker.dlnaserver.core.model.ServerStatus.RUNNING) {
+            dlnaServiceLauncher.stopService()
         } else {
-            dlnaRepository.startServerService(context)
+            dlnaServiceLauncher.startService()
         }
     }
 
     fun setPermissionGranted(granted: Boolean) {
         permissionGranted.value = granted
-        if (granted) {
+        if (granted && searchQuery.value.isNotBlank()) {
             scanSharedDirectories()
         }
     }
@@ -115,9 +104,7 @@ class DashboardViewModel @Inject constructor(
 
     fun enqueueTranscode(file: File) {
         transcodeQueueManager.enqueueJob(file)
-        viewModelScope.launch {
-            scanSharedDirectories()
-        }
+        scanSharedDirectories()
     }
 
     fun rescanFiles() {
@@ -125,7 +112,15 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun scanSharedDirectories() {
-        viewModelScope.launch(Dispatchers.IO) {
+        scanJob?.cancel()
+        val query = searchQuery.value.trim()
+        if (query.isBlank()) {
+            scannedFiles.value = emptyList()
+            isScanning.value = false
+            return
+        }
+
+        scanJob = viewModelScope.launch(Dispatchers.IO) {
             isScanning.value = true
             val directories = sharedDirectoryRepository.getEnabledDirectoriesSync()
             val mediaItems = mutableListOf<DashboardMediaFileItem>()
@@ -133,16 +128,18 @@ class DashboardViewModel @Inject constructor(
             for (dir in directories) {
                 val folder = File(dir.path)
                 if (folder.exists() && folder.isDirectory) {
-                    val files = folder.listFiles() ?: continue
-                    for (file in files) {
-                        if (file.isFile) {
-                            val name = file.name
-                            if (name.startsWith("transcoded_")) continue
-
+                    folder.walkTopDown()
+                        .filter { file ->
+                            file.isFile &&
+                                    !file.name.startsWith("transcoded_") &&
+                                    file.name.contains(query, ignoreCase = true)
+                        }
+                        .forEach { file ->
                             val mime = MimeTypeUtils.getMimeType(file)
                             if (mime.startsWith("video/")) {
-                                val transcodedFile = File(folder, "transcoded_$name")
-                                val isTranscodeDisabled = transcodedFile.exists()
+                                val parent = file.parentFile
+                                val transcodedFile = parent?.let { File(it, "transcoded_${file.name}") }
+                                val isTranscodeDisabled = transcodedFile?.exists() == true
 
                                 val metadata = MediaMetadataUtils.extractMetadata(file)
                                 val durationStr = metadata.durationFormatted ?: "--:--"
@@ -152,7 +149,7 @@ class DashboardViewModel @Inject constructor(
                                 mediaItems.add(
                                     DashboardMediaFileItem(
                                         file = file,
-                                        filename = name,
+                                        filename = file.name,
                                         sizeFormatted = sizeStr,
                                         resolution = resStr,
                                         duration = durationStr,
@@ -161,7 +158,6 @@ class DashboardViewModel @Inject constructor(
                                 )
                             }
                         }
-                    }
                 }
             }
 

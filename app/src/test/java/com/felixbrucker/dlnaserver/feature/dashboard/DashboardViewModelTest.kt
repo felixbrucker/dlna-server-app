@@ -1,10 +1,11 @@
 package com.felixbrucker.dlnaserver.feature.dashboard
 
-import com.felixbrucker.dlnaserver.core.data.repository.DlnaRepository
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
+import com.felixbrucker.dlnaserver.core.dlna.DlnaServerEngine
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeQueueManager
+import com.felixbrucker.dlnaserver.feature.service.DlnaServiceLauncher
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -27,7 +28,8 @@ import java.io.File
 class DashboardViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
-    private lateinit var dlnaRepositoryMock: DlnaRepository
+    private lateinit var dlnaServerEngineMock: DlnaServerEngine
+    private lateinit var dlnaServiceLauncherMock: DlnaServiceLauncher
     private lateinit var sharedDirectoryRepositoryMock: SharedDirectoryRepository
     private lateinit var transcodeQueueManagerMock: TranscodeQueueManager
     private val serverInfoFlow = MutableStateFlow(DlnaServerInfo(status = ServerStatus.STOPPED))
@@ -35,11 +37,12 @@ class DashboardViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        dlnaRepositoryMock = mockk(relaxed = true)
+        dlnaServerEngineMock = mockk(relaxed = true)
+        dlnaServiceLauncherMock = mockk(relaxed = true)
         sharedDirectoryRepositoryMock = mockk(relaxed = true)
         transcodeQueueManagerMock = mockk(relaxed = true)
 
-        coEvery { dlnaRepositoryMock.serverInfo } returns serverInfoFlow
+        coEvery { dlnaServerEngineMock.serverInfo } returns serverInfoFlow
         coEvery { sharedDirectoryRepositoryMock.allDirectories } returns flowOf(emptyList())
         coEvery { sharedDirectoryRepositoryMock.getEnabledDirectoriesSync() } returns emptyList()
         coEvery { transcodeQueueManagerMock.jobs } returns MutableStateFlow(emptyList())
@@ -52,7 +55,12 @@ class DashboardViewModelTest {
 
     @Test
     fun testInitialUiState() = runTest {
-        val viewModel = DashboardViewModel(dlnaRepositoryMock, sharedDirectoryRepositoryMock, transcodeQueueManagerMock)
+        val viewModel = DashboardViewModel(
+            dlnaServerEngineMock,
+            dlnaServiceLauncherMock,
+            sharedDirectoryRepositoryMock,
+            transcodeQueueManagerMock
+        )
 
         testDispatcher.scheduler.advanceUntilIdle()
         val state = viewModel.uiState.value
@@ -63,7 +71,12 @@ class DashboardViewModelTest {
 
     @Test
     fun testEnqueueTranscodeDelegatesToQueueManager() = runTest {
-        val viewModel = DashboardViewModel(dlnaRepositoryMock, sharedDirectoryRepositoryMock, transcodeQueueManagerMock)
+        val viewModel = DashboardViewModel(
+            dlnaServerEngineMock,
+            dlnaServiceLauncherMock,
+            sharedDirectoryRepositoryMock,
+            transcodeQueueManagerMock
+        )
         val dummyFile = File("/tmp/sample.mkv")
 
         viewModel.enqueueTranscode(dummyFile)

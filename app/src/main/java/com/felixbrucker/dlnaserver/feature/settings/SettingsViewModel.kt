@@ -26,13 +26,12 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
-    private val sharedDirectoryRepository: SharedDirectoryRepository,
-    private val hardwareCodecUtils: HardwareCodecUtils
+    private val sharedDirectoryRepository: SharedDirectoryRepository
 ) : ViewModel() {
 
     private val hardwareSupportMap: Map<TranscodeOption, Boolean> by lazy {
         TranscodeOption.entries.associateWith { option ->
-            hardwareCodecUtils.isEncoderSupported(option.mimeType)
+            HardwareCodecUtils.isEncoderSupported(option.mimeType)
         }
     }
 

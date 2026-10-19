@@ -36,21 +36,23 @@ class TranscodeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
-        val notification = buildNotification("Initializing transcoding...", 0, 0, false)
+        val initialNotification = buildNotification(
+            title = "Transcoding Service",
+            summaryText = "Initializing transcoding...",
+            jobLines = listOf("Preparing jobs..."),
+            overallProgress = 0
+        )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            } else {
-                0
-            }
-            if (foregroundType != 0) {
-                startForeground(NOTIFICATION_ID, notification, foregroundType)
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
+        val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
         } else {
-            startForeground(NOTIFICATION_ID, notification)
+            0
+        }
+
+        if (foregroundType != 0) {
+            startForeground(NOTIFICATION_ID, initialNotification, foregroundType)
+        } else {
+            startForeground(NOTIFICATION_ID, initialNotification)
         }
 
         observeQueue()
@@ -71,25 +73,28 @@ class TranscodeService : Service() {
                     return@collect
                 }
 
+                val runningCount = activeJobs.count { it.status == TranscodeJobStatus.RUNNING }
+                val queuedCount = activeJobs.count { it.status == TranscodeJobStatus.QUEUED }
+                val totalActive = activeJobs.size
+
+                val title = "Transcoding ($runningCount running, $queuedCount queued)"
+
+                val jobLines = activeJobs.map { job ->
+                    when (job.status) {
+                        TranscodeJobStatus.RUNNING -> {
+                            val percent = (job.progress * 100).toInt()
+                            "${job.inputFile.name}: $percent% (${job.speed}, ETA ${job.eta})"
+                        }
+                        TranscodeJobStatus.QUEUED -> "${job.inputFile.name}: Queued"
+                        else -> "${job.inputFile.name}: ${job.status.name}"
+                    }
+                }
+
+                val summaryText = jobLines.firstOrNull() ?: "Processing..."
                 val runningJob = activeJobs.firstOrNull { it.status == TranscodeJobStatus.RUNNING }
-                val completedCount = jobs.count { it.status == TranscodeJobStatus.COMPLETED || it.status == TranscodeJobStatus.FAILED }
-                val totalCount = jobs.size
-                val overallPercent = if (totalCount > 0) ((completedCount.toFloat() / totalCount.toFloat()) * 100).toInt() else 0
+                val progress = if (runningJob != null) (runningJob.progress * 100).toInt() else 0
 
-                val title = if (runningJob != null) {
-                    "Transcoding: ${runningJob.inputFile.name}"
-                } else {
-                    "Transcoding Queued (${activeJobs.size} remaining)"
-                }
-
-                val content = if (runningJob != null) {
-                    "Progress: ${(runningJob.progress * 100).toInt()}% | Speed: ${runningJob.speed} | ETA: ${runningJob.eta}"
-                } else {
-                    "Queued jobs waiting..."
-                }
-
-                val progress = if (runningJob != null) (runningJob.progress * 100).toInt() else overallPercent
-                val notification = buildNotification(title, content, progress, runningJob != null)
+                val notification = buildNotification(title, summaryText, jobLines, progress)
 
                 val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(NOTIFICATION_ID, notification)
@@ -99,9 +104,9 @@ class TranscodeService : Service() {
 
     private fun buildNotification(
         title: String,
-        content: Any,
-        progress: Int,
-        isIndeterminate: Boolean
+        summaryText: String,
+        jobLines: List<String>,
+        overallProgress: Int
     ): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java)
         val pendingOpenApp = PendingIntent.getActivity(
@@ -111,31 +116,30 @@ class TranscodeService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = if (content is String) content else content.toString()
+        val bigText = jobLines.joinToString("\n")
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(contentText)
-            .setSmallIcon(R.drawable.ic_notification_dlna)
+            .setContentText(summaryText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
+            .setSmallIcon(R.drawable.ic_notification_bolt)
             .setContentIntent(pendingOpenApp)
-            .setProgress(100, progress.coerceIn(0, 100), isIndeterminate && progress == 0)
+            .setProgress(100, overallProgress.coerceIn(0, 100), overallProgress == 0)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Transcoding Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows transcoding background job progress and statistics."
-            }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Transcoding Service",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows transcoding background job progress and statistics."
         }
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(channel)
     }
 
     override fun onDestroy() {
@@ -149,11 +153,7 @@ class TranscodeService : Service() {
 
         fun startService(context: Context) {
             val intent = Intent(context, TranscodeService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
     }
 }

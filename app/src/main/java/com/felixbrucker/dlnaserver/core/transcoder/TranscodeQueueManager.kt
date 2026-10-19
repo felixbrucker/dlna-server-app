@@ -28,8 +28,7 @@ import kotlin.coroutines.resume
 @Singleton
 class TranscodeQueueManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val appSettingsRepository: AppSettingsRepository,
-    private val hardwareCodecUtils: HardwareCodecUtils
+    private val appSettingsRepository: AppSettingsRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _jobs = MutableStateFlow<List<TranscodeJob>>(emptyList())
@@ -85,7 +84,7 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = job.outputFile
         val option = settings.option
 
-        val hasHw = hardwareCodecUtils.isEncoderSupported(option.mimeType)
+        val hasHw = HardwareCodecUtils.isEncoderSupported(option.mimeType)
         val videoEncoder = if (hasHw) {
             option.ffmpegEncoderHw
         } else {
@@ -188,9 +187,13 @@ class TranscodeQueueManager @Inject constructor(
     }
 
     private fun updateJobStatus(jobId: String, status: TranscodeJobStatus, errorMessage: String? = null) {
-        _jobs.value = _jobs.value.map { job ->
+        _jobs.value = _jobs.value.mapNotNull { job ->
             if (job.id == jobId) {
-                job.copy(status = status, errorMessage = errorMessage ?: job.errorMessage)
+                if (status == TranscodeJobStatus.COMPLETED) {
+                    null
+                } else {
+                    job.copy(status = status, errorMessage = errorMessage ?: job.errorMessage)
+                }
             } else job
         }
     }

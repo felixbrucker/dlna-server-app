@@ -1,5 +1,7 @@
 package com.felixbrucker.dlnaserver.feature.dashboard
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -40,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,6 +54,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
+import com.felixbrucker.dlnaserver.core.util.PermissionUtils
 import com.felixbrucker.dlnaserver.feature.dashboard.components.PermissionCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.ServerStatusCard
 
@@ -63,6 +67,18 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        val granted = PermissionUtils.hasStoragePermission(context)
+        viewModel.setPermissionGranted(granted)
+    }
+
+    LaunchedEffect(Unit) {
+        val granted = PermissionUtils.hasStoragePermission(context)
+        viewModel.setPermissionGranted(granted)
+    }
 
     if (uiState.isTranscodePopoverOpen) {
         TranscodeQueuePopoverDialog(
@@ -127,12 +143,14 @@ fun DashboardScreen(
         ) {
             if (!uiState.permissionGranted) {
                 PermissionCard(
-                    onRequestPermission = { viewModel.setPermissionGranted(true) }
+                    onRequestPermission = {
+                        permissionLauncher.launch(PermissionUtils.getRequiredPermissions())
+                    }
                 )
             } else {
                 ServerStatusCard(
                     serverInfo = uiState.serverInfo,
-                    onToggleServer = { viewModel.toggleServer(context) }
+                    onToggleServer = { viewModel.toggleServer() }
                 )
 
                 Row(
@@ -153,7 +171,7 @@ fun DashboardScreen(
                     }
                 }
 
-                if (uiState.mediaFiles.isEmpty()) {
+                if (uiState.searchQuery.isBlank()) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Box(
                             modifier = Modifier
@@ -162,7 +180,22 @@ fun DashboardScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (uiState.searchQuery.isBlank()) "No video files found in shared directories." else "No files match search query.",
+                                text = "Type in the search box to find video files across shared directories.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else if (uiState.mediaFiles.isEmpty()) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No video files found matching \"${uiState.searchQuery}\".",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

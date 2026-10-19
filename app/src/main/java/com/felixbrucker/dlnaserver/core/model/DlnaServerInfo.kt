@@ -6,6 +6,5 @@ data class DlnaServerInfo(
     val boundInterface: String = "None",
     val port: Int = 8192,
     val connectedDeviceCount: Int = 0,
-    val transcodeDisplayInfo: String = "Off",
     val errorMessage: String? = null
 )
