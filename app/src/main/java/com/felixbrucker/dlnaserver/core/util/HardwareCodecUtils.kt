@@ -54,7 +54,7 @@ object HardwareCodecUtils {
             }
             val colorFormats = caps.colorFormats ?: intArrayOf()
             val has10BitColorFormat = colorFormats.any { cf ->
-                cf == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010 || cf == 2130706433
+                cf == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010 || cf == 0x7F000001
             }
             has10BitProfile || has10BitColorFormat
         } catch (_: Throwable) {
