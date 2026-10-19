@@ -78,8 +78,7 @@ class TranscodeService : Service() {
                 }
 
                 val runningCount = activeJobs.count { it.status == TranscodeJobStatus.RUNNING }
-                val queuedCount = activeJobs.count { it.status == TranscodeJobStatus.QUEUED }
-                val title = "Transcoding ($runningCount running, $queuedCount queued)"
+                val title = "Transcoding ($runningCount/${activeJobs.size} running)"
 
                 val sumProgress = activeJobs.sumOf { it.progress.toDouble() }.toFloat()
                 val overallProgress = ((sumProgress / activeJobs.size.toFloat()) * 100).toInt()
@@ -98,7 +97,7 @@ class TranscodeService : Service() {
                 val subText = "$formattedEta remaining"
 
                 val jobLines = activeJobs.map { job ->
-                    val truncatedName = truncateFilename(job.inputFile.name, 32)
+                    val truncatedName = truncateFilename(job.inputFile.name, 40)
                     when (job.status) {
                         TranscodeJobStatus.RUNNING -> {
                             val percent = (job.progress * 100).toInt()

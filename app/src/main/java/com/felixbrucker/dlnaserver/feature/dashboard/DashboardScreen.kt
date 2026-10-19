@@ -214,7 +214,7 @@ private fun SearchFileDialog(
 
     val executeSearch = {
         softwareKeyboardController?.hide()
-        focusManager.clearFocus()
+        focusManager.clearFocus(true)
         onSubmitSearch()
     }
 
@@ -237,7 +237,13 @@ private fun SearchFileDialog(
                         placeholder = { Text("Enter video filename...") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { executeSearch() }),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                softwareKeyboardController?.hide()
+                                focusManager.clearFocus(true)
+                                executeSearch()
+                            }
+                        ),
                         trailingIcon = {
                             if (uiState.searchInput.isNotEmpty()) {
                                 IconButton(onClick = onClearInput) {
