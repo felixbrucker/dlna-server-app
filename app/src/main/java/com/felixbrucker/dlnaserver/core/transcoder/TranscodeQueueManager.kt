@@ -1,11 +1,14 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.os.PowerManager
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,6 +30,7 @@ import kotlin.coroutines.resume
 
 @Singleton
 class TranscodeQueueManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val appSettingsRepository: AppSettingsRepository,
     private val transcodeServiceLauncher: TranscodeServiceLauncher
 ) {
@@ -35,6 +39,12 @@ class TranscodeQueueManager @Inject constructor(
     val jobs: StateFlow<List<TranscodeJob>> = _jobs.asStateFlow()
 
     private val runningJobTasks = ConcurrentHashMap<String, Job>()
+
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    private val wakeLock: PowerManager.WakeLock = powerManager.newWakeLock(
+        PowerManager.PARTIAL_WAKE_LOCK,
+        "DLNAServer:TranscodeWakeLock"
+    )
 
     init {
         scope.launch {
@@ -119,6 +129,7 @@ class TranscodeQueueManager @Inject constructor(
     }
 
     private suspend fun executeTranscodeJob(job: TranscodeJob, settings: TranscodeSettings) {
+        wakeLock.acquire()
         val inputFile = job.inputFile
         val outputFile = job.outputFile
         val option = settings.option
@@ -216,10 +227,14 @@ class TranscodeQueueManager @Inject constructor(
                 )
                 if (outputFile.exists()) outputFile.delete()
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             updateJobStatus(job.id, TranscodeJobStatus.FAILED, errorMessage = e.message)
             if (outputFile.exists()) outputFile.delete()
         } finally {
+            if (wakeLock.isHeld) {
+                wakeLock.release()
+            }
             runningJobTasks.remove(job.id)
             processQueue()
         }
