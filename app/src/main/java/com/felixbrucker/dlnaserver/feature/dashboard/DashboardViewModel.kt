@@ -70,10 +70,11 @@ class DashboardViewModel @Inject constructor(
                     job.status == TranscodeJobStatus.FAILED
         }
 
+        val activeJobPaths = jobs.mapTo(HashSet(jobs.size)) { it.inputFile.absolutePath }
         val updatedFiles = files.map { fileItem ->
             val parent = fileItem.file.parentFile
             val transcodedFile = parent?.let { File(it, "transcoded_${fileItem.filename}") }
-            val isEnqueuedOrActive = jobs.any { it.inputFile.absolutePath == fileItem.file.absolutePath }
+            val isEnqueuedOrActive = activeJobPaths.contains(fileItem.file.absolutePath)
             val isDisabled = (transcodedFile?.exists() == true) || isEnqueuedOrActive
             fileItem.copy(isTranscodeDisabled = isDisabled)
         }
@@ -156,6 +157,7 @@ class DashboardViewModel @Inject constructor(
             val directories = sharedDirectoryRepository.getEnabledDirectoriesSync()
             val mediaItems = mutableListOf<DashboardMediaFileItem>()
             val activeJobs = transcodeQueueManager.jobs.value
+            val activeJobPaths = activeJobs.mapTo(HashSet(activeJobs.size)) { it.inputFile.absolutePath }
 
             for (dir in directories) {
                 val folder = File(dir.path)
@@ -171,7 +173,7 @@ class DashboardViewModel @Inject constructor(
                             if (mime.startsWith("video/")) {
                                 val parent = file.parentFile
                                 val transcodedFile = parent?.let { File(it, "transcoded_${file.name}") }
-                                val isEnqueuedOrActive = activeJobs.any { it.inputFile.absolutePath == file.absolutePath }
+                                val isEnqueuedOrActive = activeJobPaths.contains(file.absolutePath)
                                 val isTranscodeDisabled = (transcodedFile?.exists() == true) || isEnqueuedOrActive
 
                                 val metadata = MediaMetadataUtils.extractMetadata(file)
