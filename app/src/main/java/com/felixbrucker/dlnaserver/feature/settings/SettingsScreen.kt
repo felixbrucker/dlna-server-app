@@ -277,24 +277,24 @@ private fun EncoderOptionItem(
         )
         Surface(
             shape = MaterialTheme.shapes.extraSmall,
-            color = if (option.isHardware) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer
+            color = if (option.isHardware) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ) {
             Text(
                 text = if (option.isHardware) "HW" else "SW",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (option.isHardware) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                color = if (option.isHardware) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
         if (supports10Bit) {
             Surface(
                 shape = MaterialTheme.shapes.extraSmall,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = MaterialTheme.colorScheme.tertiaryContainer
             ) {
                 Text(
                     text = "10-bit supported",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }

@@ -74,13 +74,7 @@ enum class TranscodeOption(
         }
     }
 
-    val is10BitSupported: Boolean by lazy {
-        if (isHardware) {
-            HardwareCodecUtils.has10BitEncoderSupport(mimeType)
-        } else {
-            true
-        }
-    }
+    val is10BitSupported: Boolean = !isHardware
 
     companion object {
         fun getDefaultOption(): TranscodeOption {

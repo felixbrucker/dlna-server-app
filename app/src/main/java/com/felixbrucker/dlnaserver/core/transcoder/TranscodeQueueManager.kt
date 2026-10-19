@@ -3,6 +3,7 @@ package com.felixbrucker.dlnaserver.core.transcoder
 import android.media.MediaMetadataRetriever
 import android.os.PowerManager
 import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.Level
 import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
@@ -242,13 +243,6 @@ class TranscodeQueueManager @Inject constructor(
             add("-map")
             add("0:s?")
 
-            add("-color_primaries")
-            add("copy")
-            add("-color_trc")
-            add("copy")
-            add("-colorspace")
-            add("copy")
-
             settings.resolution.scaleFilter?.let { filter ->
                 add("-vf")
                 add(filter)
@@ -259,11 +253,7 @@ class TranscodeQueueManager @Inject constructor(
 
             if (is10BitEncoding) {
                 add("-pix_fmt")
-                if (hasHw) {
-                    add("p010le")
-                } else {
-                    add("yuv420p10le")
-                }
+                add("yuv420p10le")
             }
 
             if (hasHw) {
@@ -325,10 +315,16 @@ class TranscodeQueueManager @Inject constructor(
                 transcodeJobDao.deleteJobById(job.id)
                 _progressMap.value = _progressMap.value - job.id
             } else {
+                val errorLogs = session.allLogs?.filter { log -> log.level.value <= Level.AV_LOG_ERROR.value } ?: emptyList()
+                val errorMsg = if (errorLogs.isNotEmpty()) {
+                    "FFmpeg exit code: ${session.returnCode}. Logs: ${errorLogs.joinToString("") { it.message }}"
+                } else {
+                    "FFmpeg exit code: ${session.returnCode}"
+                }
                 transcodeJobDao.updateJobStatus(
                     job.id,
                     TranscodeJobStatus.FAILED,
-                    errorMessage = "FFmpeg exit code: ${session.returnCode}"
+                    errorMessage = errorMsg
                 )
                 if (outputFile.exists()) outputFile.delete()
             }
