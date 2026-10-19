@@ -1,6 +1,5 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
-import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.PowerManager
 import com.arthenica.ffmpegkit.FFmpegKit
@@ -8,7 +7,6 @@ import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,7 +28,7 @@ import kotlin.coroutines.resume
 
 @Singleton
 class TranscodeQueueManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    powerManager: PowerManager,
     private val appSettingsRepository: AppSettingsRepository,
     private val transcodeServiceLauncher: TranscodeServiceLauncher
 ) {
@@ -40,7 +38,6 @@ class TranscodeQueueManager @Inject constructor(
 
     private val runningJobTasks = ConcurrentHashMap<String, Job>()
 
-    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     private val wakeLock: PowerManager.WakeLock = powerManager.newWakeLock(
         PowerManager.PARTIAL_WAKE_LOCK,
         "DLNAServer:TranscodeWakeLock"

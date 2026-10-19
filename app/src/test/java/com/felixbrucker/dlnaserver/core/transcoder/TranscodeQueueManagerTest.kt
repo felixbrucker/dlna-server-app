@@ -1,6 +1,5 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
-import android.content.Context
 import android.os.PowerManager
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
@@ -28,7 +27,6 @@ import java.io.File
 class TranscodeQueueManagerTest {
 
     private val testDispatcher = StandardTestDispatcher()
-    private lateinit var contextMock: Context
     private lateinit var powerManagerMock: PowerManager
     private lateinit var wakeLockMock: PowerManager.WakeLock
     private lateinit var appSettingsRepositoryMock: AppSettingsRepository
@@ -37,13 +35,11 @@ class TranscodeQueueManagerTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        contextMock = mockk(relaxed = true)
         powerManagerMock = mockk(relaxed = true)
         wakeLockMock = mockk(relaxed = true)
         appSettingsRepositoryMock = mockk(relaxed = true)
         transcodeServiceLauncherMock = mockk(relaxed = true)
 
-        every { contextMock.getSystemService(Context.POWER_SERVICE) } returns powerManagerMock
         every { powerManagerMock.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DLNAServer:TranscodeWakeLock") } returns wakeLockMock
         coEvery { appSettingsRepositoryMock.transcodeSettings } returns flowOf(TranscodeSettings())
     }
@@ -56,7 +52,7 @@ class TranscodeQueueManagerTest {
     @Test
     fun testWakeLockAcquiredAndReleasedOnJobExecution() = runTest {
         val manager = TranscodeQueueManager(
-            contextMock,
+            powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock
         )
