@@ -9,6 +9,7 @@ import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.core.util.notifySystemOfNewFile
@@ -256,6 +257,11 @@ class TranscodeQueueManager @Inject constructor(
             add("250")
             add("-keyint_min")
             add("60")
+
+            if (!hasHw && (option == TranscodeOption.X264_SW || option == TranscodeOption.X265_SW || option == TranscodeOption.AV1_SW)) {
+                add("-preset")
+                add("ultrafast")
+            }
 
             if (is10BitEncoding) {
                 add("-pix_fmt")
