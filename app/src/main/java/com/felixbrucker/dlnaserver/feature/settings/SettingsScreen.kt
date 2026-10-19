@@ -225,8 +225,8 @@ fun SettingsScreen(
                         Slider(
                             value = uiState.transcodeSettings.crf.toFloat(),
                             onValueChange = { viewModel.onCrfChanged(it.toInt()) },
-                            valueRange = 16f..22f,
-                            steps = 5
+                            valueRange = 0f..63f,
+                            steps = 62
                         )
                     }
 

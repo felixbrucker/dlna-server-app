@@ -5,7 +5,6 @@ import android.media.MediaMetadataRetriever
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import com.felixbrucker.dlnaserver.feature.service.TranscodeService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -86,17 +85,11 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = job.outputFile
         val option = settings.option
 
-        if (option == TranscodeOption.NONE) {
-            updateJobStatus(job.id, TranscodeJobStatus.FAILED, errorMessage = "Transcode option set to Off")
-            processQueue()
-            return
-        }
-
-        val hasHw = option.mimeType?.let { hardwareCodecUtils.isEncoderSupported(it) } ?: false
-        val videoEncoder = if (hasHw && !option.ffmpegEncoderHw.isNullOrBlank()) {
+        val hasHw = hardwareCodecUtils.isEncoderSupported(option.mimeType)
+        val videoEncoder = if (hasHw) {
             option.ffmpegEncoderHw
         } else {
-            option.ffmpegEncoderSw ?: "copy"
+            option.ffmpegEncoderSw
         }
 
         val argumentsList = mutableListOf<String>().apply {
@@ -123,7 +116,7 @@ class TranscodeQueueManager @Inject constructor(
             if (hasHw) {
                 add("-b:v")
                 add("${settings.bitrateMb}M")
-            } else if (videoEncoder.contains("x264") || videoEncoder.contains("x265")) {
+            } else {
                 add("-crf")
                 add(settings.crf.toString())
             }

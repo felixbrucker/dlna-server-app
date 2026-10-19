@@ -13,9 +13,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class TranscodeSettings(
-    val option: TranscodeOption = TranscodeOption.NONE,
+    val option: TranscodeOption = TranscodeOption.X265,
     val resolution: TranscodeResolution = TranscodeResolution.KEEP,
-    val bitrateMb: Int = 10,
+    val bitrateMb: Int = 6,
     val crf: Int = 20,
     val maxParallelJobs: Int = 1
 )
@@ -34,15 +34,14 @@ class AppSettingsRepository @Inject constructor(
     }
 
     val selectedTranscodeOption: Flow<TranscodeOption> = dataStore.data.map { preferences ->
-        val rawId = preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.NONE.id
+        val rawId = preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265.id
         TranscodeOption.fromId(rawId)
     }
 
     val transcodeSettings: Flow<TranscodeSettings> = dataStore.data.map { preferences ->
-        val option = TranscodeOption.fromId(preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.NONE.id)
+        val option = TranscodeOption.fromId(preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265.id)
         val resolution = TranscodeResolution.fromId(preferences[PreferenceKeys.TRANSCODE_RESOLUTION] ?: TranscodeResolution.KEEP.id)
-        val defaultBitrate = if (option == TranscodeOption.X265) 6 else 10
-        val bitrate = preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] ?: defaultBitrate
+        val bitrate = preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] ?: 6
         val crf = preferences[PreferenceKeys.TRANSCODE_CRF] ?: 20
         val maxJobs = preferences[PreferenceKeys.MAX_PARALLEL_JOBS] ?: 1
 
@@ -75,7 +74,7 @@ class AppSettingsRepository @Inject constructor(
 
     suspend fun setCrf(crf: Int) {
         dataStore.edit { preferences ->
-            preferences[PreferenceKeys.TRANSCODE_CRF] = crf.coerceIn(16, 22)
+            preferences[PreferenceKeys.TRANSCODE_CRF] = crf.coerceIn(0, 63)
         }
     }
 

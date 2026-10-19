@@ -25,8 +25,8 @@ class HardwareCodecUtilsTest {
     }
 
     @Test
-    fun testHasHardwareEncoderSupportForNoneOptionReturnsFalse() {
-        val option = TranscodeOption.NONE
+    fun testHasHardwareEncoderSupportForOptionReturnsBoolean() {
+        val option = TranscodeOption.X265
 
         val result = HardwareCodecUtils.hasHardwareEncoderSupport(option)
 

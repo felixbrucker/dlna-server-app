@@ -3,17 +3,10 @@ package com.felixbrucker.dlnaserver.core.model
 enum class TranscodeOption(
     val id: String,
     val codecName: String,
-    val mimeType: String?,
-    val ffmpegEncoderSw: String?,
-    val ffmpegEncoderHw: String?
+    val mimeType: String,
+    val ffmpegEncoderSw: String,
+    val ffmpegEncoderHw: String
 ) {
-    NONE(
-        id = "NONE",
-        codecName = "Off",
-        mimeType = null,
-        ffmpegEncoderSw = null,
-        ffmpegEncoderHw = null
-    ),
     X264(
         id = "X264",
         codecName = "x264",
@@ -44,15 +37,12 @@ enum class TranscodeOption(
     );
 
     fun getDisplayLabel(hasHwSupport: Boolean): String {
-        return when (this) {
-            NONE -> "Off"
-            else -> if (hasHwSupport) "$codecName (HW)" else "$codecName (SW)"
-        }
+        return if (hasHwSupport) "$codecName (HW)" else "$codecName (SW)"
     }
 
     companion object {
         fun fromId(id: String): TranscodeOption {
-            return entries.firstOrNull { it.id == id } ?: NONE
+            return entries.firstOrNull { it.id == id } ?: X265
         }
     }
 }

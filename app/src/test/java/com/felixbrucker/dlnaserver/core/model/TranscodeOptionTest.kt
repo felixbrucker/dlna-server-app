@@ -15,21 +15,12 @@ class TranscodeOptionTest {
     }
 
     @Test
-    fun testFromIdUnknownReturnsNone() {
+    fun testFromIdUnknownReturnsX265Default() {
         val id = "UNKNOWN_ID"
 
         val option = TranscodeOption.fromId(id)
 
-        assertEquals(TranscodeOption.NONE, option)
-    }
-
-    @Test
-    fun testDisplayLabelForNoneReturnsOff() {
-        val option = TranscodeOption.NONE
-
-        val label = option.getDisplayLabel(hasHwSupport = true)
-
-        assertEquals("Off", label)
+        assertEquals(TranscodeOption.X265, option)
     }
 
     @Test

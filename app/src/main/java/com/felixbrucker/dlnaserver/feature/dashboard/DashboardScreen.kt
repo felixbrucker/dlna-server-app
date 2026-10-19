@@ -132,10 +132,7 @@ fun DashboardScreen(
             } else {
                 ServerStatusCard(
                     serverInfo = uiState.serverInfo,
-                    selectedTranscodeOption = com.felixbrucker.dlnaserver.core.model.TranscodeOption.NONE,
-                    availableTranscodeOptions = emptyList(),
-                    onToggleServer = { viewModel.toggleServer(context) },
-                    onSelectTranscodeOption = {}
+                    onToggleServer = { viewModel.toggleServer(context) }
                 )
 
                 Row(

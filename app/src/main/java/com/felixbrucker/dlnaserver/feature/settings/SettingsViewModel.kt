@@ -32,7 +32,7 @@ class SettingsViewModel @Inject constructor(
 
     private val hardwareSupportMap: Map<TranscodeOption, Boolean> by lazy {
         TranscodeOption.entries.associateWith { option ->
-            option.mimeType?.let { hardwareCodecUtils.isEncoderSupported(it) } ?: false
+            hardwareCodecUtils.isEncoderSupported(option.mimeType)
         }
     }
 
