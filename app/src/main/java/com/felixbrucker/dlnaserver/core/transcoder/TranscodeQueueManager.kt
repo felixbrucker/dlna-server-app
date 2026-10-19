@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.PowerManager
 import com.arthenica.ffmpegkit.FFmpegKit
@@ -10,7 +11,9 @@ import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
+import com.felixbrucker.dlnaserver.core.util.notifySystemOfNewFile
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +38,7 @@ import kotlin.math.round
 
 @Singleton
 class TranscodeQueueManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     powerManager: PowerManager,
     private val appSettingsRepository: AppSettingsRepository,
     private val transcodeServiceLauncher: TranscodeServiceLauncher,
@@ -314,6 +318,7 @@ class TranscodeQueueManager @Inject constructor(
             }
 
             if (session.returnCode.isValueSuccess) {
+                outputFile.notifySystemOfNewFile(context)
                 transcodeJobDao.deleteJobById(job.id)
                 _progressMap.value = _progressMap.value - job.id
             } else {

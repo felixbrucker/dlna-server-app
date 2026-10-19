@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.content.Context
 import android.os.PowerManager
 import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
@@ -34,6 +35,7 @@ import java.io.File
 class TranscodeQueueManagerTest {
 
     private val testDispatcher = StandardTestDispatcher()
+    private lateinit var contextMock: Context
     private lateinit var powerManagerMock: PowerManager
     private lateinit var wakeLockMock: PowerManager.WakeLock
     private lateinit var appSettingsRepositoryMock: AppSettingsRepository
@@ -44,6 +46,7 @@ class TranscodeQueueManagerTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        contextMock = mockk(relaxed = true)
         powerManagerMock = mockk(relaxed = true)
         wakeLockMock = mockk(relaxed = true)
         appSettingsRepositoryMock = mockk(relaxed = true)
@@ -84,6 +87,7 @@ class TranscodeQueueManagerTest {
     @Test
     fun testWakeLockAcquiredAndReleasedOnJobExecution() = runTest {
         val manager = TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
@@ -124,6 +128,7 @@ class TranscodeQueueManagerTest {
         dbJobsFlow.value = listOf(runningEntity)
 
         TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
@@ -159,6 +164,7 @@ class TranscodeQueueManagerTest {
         )
         dbJobsFlow.value = listOf(entity)
         val manager = TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
@@ -187,6 +193,7 @@ class TranscodeQueueManagerTest {
         )
         dbJobsFlow.value = listOf(entity)
         val manager = TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
