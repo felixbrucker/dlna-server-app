@@ -3,6 +3,7 @@ package com.felixbrucker.dlnaserver.core.dlna
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class ContentDirectoryXmlTest {
 
@@ -11,7 +12,7 @@ class ContentDirectoryXmlTest {
         val ip = "192.168.1.100"
         val port = 8192
 
-        val xml = ContentDirectoryXml.generateDeviceDescription(ip, port, "Test DLNA")
+        val xml = ContentDirectoryXml.generateDeviceDescription("Test DLNA")
 
         assertTrue(xml.contains("Test DLNA"))
         assertTrue(xml.contains("urn:schemas-upnp-org:service:ContentDirectory:1"))
@@ -34,6 +35,24 @@ class ContentDirectoryXmlTest {
 
         assertTrue(xml.contains("&lt;container id=&quot;f_"))
         assertTrue(xml.contains("Temp Folder"))
+    }
+
+    @Test
+    fun testBuildBrowseResponseForMediaFile() {
+        val tempFile = File.createTempFile("video_sample", ".mkv").apply { deleteOnExit() }
+        val sharedDir = SharedDirectory(id = 1, path = tempFile.parent ?: tempFile.absolutePath, displayName = "Videos")
+
+        val xml = ContentDirectoryXml.buildBrowseResponse(
+            objectID = "i_${ContentDirectoryXml.encodePath(tempFile.absolutePath)}",
+            browseFlag = "BrowseMetadata",
+            startingIndex = 0,
+            requestedCount = 0,
+            sharedDirectories = listOf(sharedDir),
+            baseUrl = "http://192.168.1.100:8192"
+        )
+
+        assertTrue(xml.contains("video/x-matroska"))
+        assertTrue(xml.contains("DLNA.ORG_PN=MATROSKA"))
     }
 
     @Test

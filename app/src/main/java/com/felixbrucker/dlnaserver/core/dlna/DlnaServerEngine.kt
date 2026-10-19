@@ -2,12 +2,10 @@ package com.felixbrucker.dlnaserver.core.dlna
 
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
-import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,20 +14,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DlnaServerEngine @Inject constructor() {
+class DlnaServerEngine @Inject constructor(
+    private val httpMediaServer: HttpMediaServer,
+    private val ssdpServer: SsdpServer
+) {
 
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var httpMediaServer: HttpMediaServer? = null
-    private var ssdpServer: SsdpServer? = null
-
-    private var activeSharedDirectoriesProvider: (() -> List<SharedDirectory>)? = null
 
     private val _serverInfo = MutableStateFlow(DlnaServerInfo())
     val serverInfo: StateFlow<DlnaServerInfo> = _serverInfo.asStateFlow()
-
-    fun setSharedDirectoriesProvider(provider: () -> List<SharedDirectory>) {
-        this.activeSharedDirectoriesProvider = provider
-    }
 
     @Synchronized
     fun startServer(): Boolean {
@@ -48,21 +41,15 @@ class DlnaServerEngine @Inject constructor() {
 
         try {
             val port = 8192
-            val httpServer = HttpMediaServer(port = port) {
-                activeSharedDirectoriesProvider?.invoke() ?: emptyList()
-            }
-            val ssdp = SsdpServer(port = port)
 
-            httpServer.start(netIf.ipAddress, engineScope)
-            ssdp.start(netIf.ipAddress, netIf.name, engineScope)
-
-            httpMediaServer = httpServer
-            ssdpServer = ssdp
+            httpMediaServer.start(netIf.ipAddress, engineScope)
+            ssdpServer.start(netIf.ipAddress, netIf.name, engineScope)
 
             engineScope.launch {
-                httpServer.connectedClients.collect { clients ->
+                httpMediaServer.connectedClients.collect { clients ->
                     _serverInfo.value = _serverInfo.value.copy(
-                        connectedDeviceCount = clients.size
+                        connectedDeviceCount = clients.size,
+                        connectedClients = clients
                     )
                 }
             }
@@ -73,6 +60,7 @@ class DlnaServerEngine @Inject constructor() {
                 boundInterface = netIf.displayName,
                 port = port,
                 connectedDeviceCount = 0,
+                connectedClients = emptyList(),
                 errorMessage = null
             )
             return true
@@ -89,12 +77,10 @@ class DlnaServerEngine @Inject constructor() {
     @Synchronized
     fun stopServer() {
         try {
-            httpMediaServer?.stop()
-            ssdpServer?.stop()
+            httpMediaServer.stop()
+            ssdpServer.stop()
         } catch (_: Exception) {
         }
-        httpMediaServer = null
-        ssdpServer = null
 
         _serverInfo.value = DlnaServerInfo(
             status = ServerStatus.STOPPED,
@@ -102,16 +88,8 @@ class DlnaServerEngine @Inject constructor() {
             boundInterface = "None",
             port = 8192,
             connectedDeviceCount = 0,
+            connectedClients = emptyList(),
             errorMessage = null
         )
-    }
-
-    fun isRunning(): Boolean {
-        return _serverInfo.value.status == ServerStatus.RUNNING
-    }
-
-    fun shutdown() {
-        stopServer()
-        engineScope.cancel()
     }
 }

@@ -24,8 +24,6 @@ object ContentDirectoryXml {
     }
 
     fun generateDeviceDescription(
-        ipAddress: String,
-        port: Int,
         friendlyName: String = "DLNA Server"
     ): String {
         return """<?xml version="1.0" encoding="utf-8"?>

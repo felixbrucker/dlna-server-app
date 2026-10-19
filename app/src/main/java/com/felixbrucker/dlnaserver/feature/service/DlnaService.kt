@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -13,7 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.felixbrucker.dlnaserver.MainActivity
 import com.felixbrucker.dlnaserver.R
-import com.felixbrucker.dlnaserver.core.data.repository.DlnaRepository
+import com.felixbrucker.dlnaserver.core.dlna.DlnaServerEngine
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +25,7 @@ import javax.inject.Inject
 class DlnaService : Service() {
 
     @Inject
-    lateinit var dlnaRepository: DlnaRepository
+    lateinit var dlnaServerEngine: DlnaServerEngine
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
@@ -47,21 +46,12 @@ class DlnaService : Service() {
                 )
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                    } else {
-                        0
-                    }
-                    if (foregroundType != 0) {
-                        startForeground(NOTIFICATION_ID, notification, foregroundType)
-                    } else {
-                        startForeground(NOTIFICATION_ID, notification)
-                    }
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
                 } else {
                     startForeground(NOTIFICATION_ID, notification)
                 }
 
-                val success = dlnaRepository.startEngineDirect()
+                val success = dlnaServerEngine.startServer()
                 if (success) {
                     observeServerStatus()
                 } else {
@@ -69,7 +59,7 @@ class DlnaService : Service() {
                 }
             }
             ACTION_STOP -> {
-                dlnaRepository.stopEngineDirect()
+                dlnaServerEngine.stopServer()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -81,14 +71,14 @@ class DlnaService : Service() {
     private fun observeServerStatus() {
         statusCollectJob?.cancel()
         statusCollectJob = serviceScope.launch {
-            dlnaRepository.serverInfo.collect { info ->
+            dlnaServerEngine.serverInfo.collect { info ->
                 if (info.status == ServerStatus.RUNNING) {
                     val notification = buildNotification(
                         interfaceName = info.boundInterface,
                         ipAddress = info.ipAddress,
                         connectedDevices = info.connectedDeviceCount
                     )
-                    val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                     manager.notify(NOTIFICATION_ID, notification)
                 } else if (info.status == ServerStatus.STOPPED || info.status == ServerStatus.ERROR) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -138,22 +128,20 @@ class DlnaService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "DLNA Server Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows the active status of the DLNA server."
-            }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "DLNA Server Service",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows the active status of the DLNA server."
         }
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(channel)
     }
 
     override fun onDestroy() {
         serviceJob.cancel()
-        dlnaRepository.stopEngineDirect()
+        dlnaServerEngine.stopServer()
         super.onDestroy()
     }
 

@@ -9,10 +9,13 @@ import java.net.DatagramPacket
 import java.net.InetAddress
 import java.net.MulticastSocket
 import java.net.NetworkInterface
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.time.Duration.Companion.seconds
 
-class SsdpServer(
+@Singleton
+class SsdpServer @Inject constructor() {
     private val port: Int = 8192
-) {
     private var multicastSocket: MulticastSocket? = null
     private var listeningJob: Job? = null
     private var notifyJob: Job? = null
@@ -44,7 +47,7 @@ class SsdpServer(
 
                 notifyJob = launch {
                     while (isRunning) {
-                        delay(30_000)
+                        delay(30.seconds)
                         if (isRunning) {
                             sendSsdpAlive(socket, group, ipAddress)
                         }

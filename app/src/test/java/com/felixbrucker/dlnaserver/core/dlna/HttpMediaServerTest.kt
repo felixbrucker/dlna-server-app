@@ -1,6 +1,9 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import io.mockk.coEvery
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -21,6 +24,7 @@ class HttpMediaServerTest {
 
     private lateinit var tempFile: File
     private lateinit var sharedDir: SharedDirectory
+    private lateinit var sharedDirectoryRepositoryMock: SharedDirectoryRepository
     private lateinit var server: HttpMediaServer
     private val testDispatcher = UnconfinedTestDispatcher()
     private val testScope = TestScope(testDispatcher)
@@ -36,26 +40,51 @@ class HttpMediaServerTest {
             path = tempFile.parentFile?.absolutePath ?: tempFile.absolutePath,
             displayName = "Test"
         )
-        server = HttpMediaServer(port = 8193) { listOf(sharedDir) }
-        server.start("127.0.0.1", testScope)
+        sharedDirectoryRepositoryMock = mockk(relaxed = true)
+        coEvery { sharedDirectoryRepositoryMock.getEnabledDirectoriesSync() } returns listOf(sharedDir)
     }
 
     @After
     fun tearDown() {
-        server.stop()
+        if (::server.isInitialized) {
+            server.stop()
+        }
         if (tempFile.exists()) {
             tempFile.delete()
         }
     }
 
+    private fun startServer(): HttpMediaServer {
+        val s = HttpMediaServer(sharedDirectoryRepositoryMock)
+        s.start("127.0.0.1", testScope)
+        return s
+    }
+
+    private fun createConnectedSocket(port: Int): Socket {
+        var socket: Socket? = null
+        var attempts = 0
+        while (attempts < 30) {
+            try {
+                socket = Socket("127.0.0.1", port)
+                break
+            } catch (_: Exception) {
+                Thread.sleep(50)
+                attempts++
+            }
+        }
+        return socket ?: Socket("127.0.0.1", port)
+    }
+
     @Test
     fun testClientTrackedWhenRequestingMediaFile() = runTest {
-        val socket = Socket("127.0.0.1", 8193)
+        val port = 8192
+        server = startServer()
+        val socket = createConnectedSocket(port)
         val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
         val encodedPath = ContentDirectoryXml.encodePath(tempFile.absolutePath)
 
         writer.write("GET /media?path=$encodedPath HTTP/1.1\r\n")
-        writer.write("Host: 127.0.0.1:8193\r\n")
+        writer.write("Host: 127.0.0.1:$port\r\n")
         writer.write("Connection: close\r\n\r\n")
         writer.flush()
 

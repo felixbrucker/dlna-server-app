@@ -2,182 +2,496 @@ package com.felixbrucker.dlnaserver.feature.dashboard
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import androidx.compose.ui.unit.sp
+import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
+import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
 import com.felixbrucker.dlnaserver.core.util.PermissionUtils
-import com.felixbrucker.dlnaserver.feature.dashboard.components.DirectoryList
-import com.felixbrucker.dlnaserver.feature.dashboard.components.FolderPickerDialog
+import com.felixbrucker.dlnaserver.feature.dashboard.components.ClientActivityCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.PermissionCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.ServerStatusCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    modifier: Modifier = Modifier,
+    onNavigateToSettings: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.setPermissionGranted(PermissionUtils.hasAllPermissions(context))
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-    ) {
-        val hasAll = PermissionUtils.hasAllPermissions(context)
-        viewModel.setPermissionGranted(hasAll)
-        if (!hasAll) {
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        val granted = PermissionUtils.hasAllPermissions(context)
+        viewModel.setPermissionGranted(granted)
+        if (!granted) {
             PermissionUtils.openAppSettings(context)
-        }
-    }
-
-    val requestPermissionsAction = {
-        val missingPermissions = PermissionUtils.getMissingPermissions(context)
-        if (missingPermissions.isNotEmpty()) {
-            permissionLauncher.launch(missingPermissions)
-        } else if (!PermissionUtils.hasAllPermissions(context)) {
-            PermissionUtils.openAppSettings(context)
-        } else {
-            viewModel.setPermissionGranted(granted = true)
         }
     }
 
     LaunchedEffect(Unit) {
-        val missingPermissions = PermissionUtils.getMissingPermissions(context)
-        if (missingPermissions.isNotEmpty()) {
-            permissionLauncher.launch(missingPermissions)
-        }
-        viewModel.setPermissionGranted(PermissionUtils.hasAllPermissions(context))
+        val granted = PermissionUtils.hasAllPermissions(context)
+        viewModel.setPermissionGranted(granted)
     }
 
-    DashboardContent(
-        uiState = uiState,
-        onToggleServer = {
-            if (!PermissionUtils.hasAllPermissions(context)) {
-                requestPermissionsAction()
-            } else {
-                viewModel.toggleServer(context)
-            }
-        },
-        onToggleDirectory = { viewModel.toggleDirectory(it) },
-        onDeleteDirectory = { viewModel.deleteDirectory(it) },
-        onOpenFolderPicker = {
-            if (!PermissionUtils.hasAllPermissions(context)) {
-                requestPermissionsAction()
-            } else {
-                viewModel.setFolderPickerOpen(isOpen = true)
-            }
-        },
-        onRequestPermissions = requestPermissionsAction,
-        modifier = modifier,
-    )
-
-    if (uiState.isFolderPickerOpen) {
-        FolderPickerDialog(
-            onDismissRequest = { viewModel.setFolderPickerOpen(isOpen = false) },
-        ) { path, name ->
-            viewModel.addDirectory(path, name)
-        }
+    if (uiState.isSearchDialogOpen) {
+        SearchFileDialog(
+            uiState = uiState,
+            onSearchInputChange = { viewModel.onSearchInputChanged(it) },
+            onClearInput = { viewModel.clearSearchInput() },
+            onSubmitSearch = { viewModel.submitSearch() },
+            onTranscodeClick = { viewModel.enqueueTranscode(it.file) },
+            onDismiss = { viewModel.setSearchDialogOpen(false) }
+        )
     }
-}
 
-@Composable
-private fun DashboardContent(
-    uiState: DashboardUiState,
-    onToggleServer: () -> Unit,
-    onToggleDirectory: (SharedDirectory) -> Unit,
-    onDeleteDirectory: (Long) -> Unit,
-    onOpenFolderPicker: () -> Unit,
-    onRequestPermissions: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Scaffold(
-        modifier = modifier,
-        topBar = { DashboardTopAppBar() },
-        floatingActionButton = { AddDirectoryFab(onClick = onOpenFolderPicker) },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+    if (uiState.isTranscodeBottomSheetOpen) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.setBottomSheetOpen(false) },
+            sheetState = sheetState
         ) {
-            if (!uiState.permissionGranted) {
-                PermissionCard(onRequestPermission = onRequestPermissions)
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            ServerStatusCard(serverInfo = uiState.serverInfo, onToggleServer = onToggleServer)
-            Spacer(modifier = Modifier.height(16.dp))
-            SectionHeader()
-            Spacer(modifier = Modifier.height(8.dp))
-            DirectoryList(
-                directories = uiState.sharedDirectories,
-                onToggleDirectory = onToggleDirectory,
-                onDeleteDirectory = onDeleteDirectory,
-                modifier = Modifier.weight(1f),
+            TranscodeQueueBottomSheetContent(
+                jobs = uiState.activeTranscodeJobs,
+                onCancelClick = { viewModel.cancelTranscodeJob(it) },
+                onRetryClick = { viewModel.retryTranscodeJob(it) }
             )
         }
     }
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text("DLNA Media Server") },
+                actions = {
+                    IconButton(onClick = { viewModel.setSearchDialogOpen(true) }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search Video Files"
+                        )
+                    }
+
+                    if (uiState.activeTranscodeJobs.isNotEmpty()) {
+                        val runningOrQueued = uiState.activeTranscodeJobs.filter {
+                            it.status == TranscodeJobStatus.RUNNING || it.status == TranscodeJobStatus.QUEUED
+                        }
+                        val totalProgress = if (runningOrQueued.isNotEmpty()) {
+                            runningOrQueued.map { it.progress }.sum() / runningOrQueued.size
+                        } else 0f
+
+                        val totalEtaStr = calculateTotalEtaString(runningOrQueued)
+
+                        IconButton(onClick = { viewModel.setBottomSheetOpen(true) }) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = { if (totalProgress > 0) totalProgress else 0.1f },
+                                    modifier = Modifier.fillMaxSize(),
+                                    strokeWidth = 3.dp
+                                )
+                                Text(
+                                    text = totalEtaStr,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (!uiState.permissionGranted) {
+                PermissionCard(
+                    onRequestPermission = {
+                        permissionLauncher.launch(PermissionUtils.getRequiredPermissions())
+                    }
+                )
+            } else {
+                ServerStatusCard(
+                    serverInfo = uiState.serverInfo,
+                    onToggleServer = { viewModel.toggleServer() }
+                )
+                ClientActivityCard(
+                    connectedClients = uiState.serverInfo.connectedClients
+                )
+            }
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun calculateTotalEtaString(jobs: List<TranscodeJob>): String {
+    val activeEtas = jobs.map { it.etaSeconds }.filter { it > 0L }
+    if (activeEtas.isEmpty()) return "--:--"
+    val avgSeconds = (activeEtas.sum().toDouble() / activeEtas.size.toDouble()).toLong()
+    val m = avgSeconds / 60
+    val s = avgSeconds % 60
+    return String.format("%02d:%02d", m, s)
+}
+
 @Composable
-private fun DashboardTopAppBar() {
-    TopAppBar(
-        title = { Text("DLNA Server") },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+private fun SearchFileDialog(
+    uiState: DashboardUiState,
+    onSearchInputChange: (String) -> Unit,
+    onClearInput: () -> Unit,
+    onSubmitSearch: () -> Unit,
+    onTranscodeClick: (DashboardMediaFileItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Search Video Files") },
+        text = {
+            val focusManager = LocalFocusManager.current
+            val softwareKeyboardController = LocalSoftwareKeyboardController.current
+
+            val executeSearch = {
+                softwareKeyboardController?.hide()
+                focusManager.clearFocus(true)
+                onSubmitSearch()
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = uiState.searchInput,
+                        onValueChange = onSearchInputChange,
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Enter video filename...") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                executeSearch()
+                            }
+                        ),
+                        trailingIcon = {
+                            if (uiState.searchInput.isNotEmpty()) {
+                                IconButton(onClick = onClearInput) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                }
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(onClick = { executeSearch() }) {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                }
+
+                if (uiState.isScanningFiles) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (uiState.submittedSearchQuery.isBlank()) {
+                    Text(
+                        text = "Enter a search term and tap Search to scan shared directories recursively.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else if (uiState.mediaFiles.isEmpty()) {
+                    Text(
+                        text = "No video files found matching \"${uiState.submittedSearchQuery}\".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.height(280.dp)
+                    ) {
+                        items(items = uiState.mediaFiles, key = { it.file.absolutePath }) { item ->
+                            MediaFileItemCard(
+                                item = item,
+                                onTranscodeClick = { onTranscodeClick(item) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
     )
 }
 
 @Composable
-private fun SectionHeader() {
-    Text(
-        text = "Shared Directories",
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.primary,
-    )
+private fun MediaFileItemCard(
+    item: DashboardMediaFileItem,
+    onTranscodeClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Movie,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = item.filename,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "${item.sizeFormatted} • ${item.resolution} • ${item.duration}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = onTranscodeClick,
+                enabled = !item.isTranscodeDisabled
+            ) {
+                Text(if (item.isTranscodeDisabled) "Transcoded" else "Transcode")
+            }
+        }
+    }
 }
 
 @Composable
-private fun AddDirectoryFab(onClick: () -> Unit) {
-    FloatingActionButton(onClick = onClick) {
-        Icon(imageVector = Icons.Default.Add, contentDescription = "Add Shared Directory")
+private fun TranscodeQueueBottomSheetContent(
+    jobs: List<TranscodeJob>,
+    onCancelClick: (String) -> Unit,
+    onRetryClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.75f)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "Transcode Queue",
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        if (jobs.isEmpty()) {
+            Text(
+                text = "No active or queued transcode jobs.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(items = jobs, key = { it.id }) { job ->
+                    TranscodeJobRow(
+                        job = job,
+                        onCancelClick = { onCancelClick(job.id) },
+                        onRetryClick = { onRetryClick(job.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranscodeJobRow(
+    job: TranscodeJob,
+    onCancelClick: () -> Unit,
+    onRetryClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val badgeColor = when (job.status) {
+                    TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.primaryContainer
+                    TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                val badgeTextColor = when (job.status) {
+                    TranscodeJobStatus.RUNNING -> MaterialTheme.colorScheme.onPrimaryContainer
+                    TranscodeJobStatus.FAILED -> MaterialTheme.colorScheme.onErrorContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = badgeColor,
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = job.status.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = badgeTextColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = job.inputFile.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (job.status == TranscodeJobStatus.FAILED) {
+                        IconButton(onClick = onRetryClick) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retry Job"
+                            )
+                        }
+                    }
+                    IconButton(onClick = onCancelClick) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cancel Job"
+                        )
+                    }
+                }
+            }
+
+            if (job.status == TranscodeJobStatus.RUNNING) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { job.progress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Speed: ${job.speed}",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Text(
+                        text = "ETA: ${job.eta}",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            } else if (job.status == TranscodeJobStatus.FAILED && job.errorMessage != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Error: ${job.errorMessage}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }

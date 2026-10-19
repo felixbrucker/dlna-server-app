@@ -19,11 +19,6 @@ class SharedDirectoryRepository @Inject constructor(
             list.map { it.toDomain() }
         }
 
-    val enabledDirectories: Flow<List<SharedDirectory>> =
-        sharedDirectoryDao.getEnabledDirectories().map { list ->
-            list.map { it.toDomain() }
-        }
-
     suspend fun getEnabledDirectoriesSync(): List<SharedDirectory> {
         return sharedDirectoryDao.getEnabledDirectoriesSync().map { it.toDomain() }
     }
@@ -59,6 +54,10 @@ class SharedDirectoryRepository @Inject constructor(
 
     suspend fun deleteDirectory(id: Long) {
         sharedDirectoryDao.deleteDirectoryById(id)
+    }
+
+    suspend fun removeDirectory(id: Long) {
+        deleteDirectory(id)
     }
 
     private fun SharedDirectoryEntity.toDomain() = SharedDirectory(
