@@ -142,9 +142,7 @@ class TranscodeQueueManager @Inject constructor(
                 }
                 if (targetW < srcW) {
                     val calcH = round((srcH.toDouble() * targetW.toDouble() / srcW.toDouble()) / 2.0).toInt() * 2
-                    if (targetW != srcW || calcH != srcH) {
-                        "${srcW}x${srcH} -> ${targetW}x${calcH}"
-                    } else null
+                    "${srcW}x${srcH} -> ${targetW}x${calcH}"
                 } else null
             } else null
 
@@ -250,6 +248,10 @@ class TranscodeQueueManager @Inject constructor(
 
             add("-c:v")
             add(videoEncoder)
+            add("-g")
+            add("250")
+            add("-keyint_min")
+            add("60")
 
             if (is10BitEncoding) {
                 add("-pix_fmt")
