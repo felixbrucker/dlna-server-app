@@ -57,8 +57,20 @@ class SharedDirectoryRepository @Inject constructor(
         }
     }
 
+    suspend fun toggleDirectoryEnabled(id: Long, enabled: Boolean) {
+        val directories = sharedDirectoryDao.getAllDirectoriesSync()
+        val match = directories.find { it.id == id }
+        if (match != null) {
+            sharedDirectoryDao.updateDirectory(match.copy(isEnabled = enabled))
+        }
+    }
+
     suspend fun deleteDirectory(id: Long) {
         sharedDirectoryDao.deleteDirectoryById(id)
+    }
+
+    suspend fun removeDirectory(id: Long) {
+        deleteDirectory(id)
     }
 
     private fun SharedDirectoryEntity.toDomain() = SharedDirectory(

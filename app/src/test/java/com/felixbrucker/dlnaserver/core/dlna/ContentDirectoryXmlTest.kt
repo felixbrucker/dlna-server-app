@@ -38,8 +38,8 @@ class ContentDirectoryXmlTest {
     }
 
     @Test
-    fun testBuildBrowseResponseWithTranscodeActiveUsesMkvProfile() {
-        val tempFile = File.createTempFile("video_sample", ".mp4").apply { deleteOnExit() }
+    fun testBuildBrowseResponseForMediaFile() {
+        val tempFile = File.createTempFile("video_sample", ".mkv").apply { deleteOnExit() }
         val sharedDir = SharedDirectory(id = 1, path = tempFile.parent ?: tempFile.absolutePath, displayName = "Videos")
 
         val xml = ContentDirectoryXml.buildBrowseResponse(
@@ -48,8 +48,7 @@ class ContentDirectoryXmlTest {
             startingIndex = 0,
             requestedCount = 0,
             sharedDirectories = listOf(sharedDir),
-            baseUrl = "http://192.168.1.100:8192",
-            isTranscodeActive = true
+            baseUrl = "http://192.168.1.100:8192"
         )
 
         assertTrue(xml.contains("video/x-matroska"))

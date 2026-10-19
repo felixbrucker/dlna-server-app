@@ -1,8 +1,6 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
-import com.felixbrucker.dlnaserver.core.transcoder.VideoTranscoder
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,8 +21,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 class HttpMediaServer(
     private val port: Int = 8192,
-    private val videoTranscoder: VideoTranscoder = VideoTranscoder(),
-    private val getTranscodeOption: () -> TranscodeOption = { TranscodeOption.NONE },
     private val getSharedDirectories: () -> List<SharedDirectory>
 ) {
     private var serverSocket: ServerSocket? = null
@@ -85,7 +81,7 @@ class HttpMediaServer(
         _connectedClients.value = emptySet()
     }
 
-    private suspend fun handleClient(socket: Socket, hostIp: String) {
+    private fun handleClient(socket: Socket, hostIp: String) {
         try {
             val clientIp = socket.inetAddress?.hostAddress
             if (clientIp != null) {
@@ -162,7 +158,6 @@ class HttpMediaServer(
                             outputStream = outputStream,
                             file = File(filePath),
                             headers = headers,
-                            uri = uri,
                             isHeadOnly = method == "HEAD",
                             clientIp = clientIp
                         )
@@ -190,16 +185,13 @@ class HttpMediaServer(
         val requestedCount = extractTagValue(body, "RequestedCount")?.toIntOrNull() ?: 0
 
         val sharedDirs = getSharedDirectories()
-        val isTranscodeActive = getTranscodeOption() != TranscodeOption.NONE
-
         return ContentDirectoryXml.buildBrowseResponse(
             objectID = objectId,
             browseFlag = browseFlag,
             startingIndex = startingIndex,
             requestedCount = requestedCount,
             sharedDirectories = sharedDirs,
-            baseUrl = baseUrl,
-            isTranscodeActive = isTranscodeActive
+            baseUrl = baseUrl
         )
     }
 
@@ -226,12 +218,11 @@ class HttpMediaServer(
 </s:Envelope>"""
     }
 
-    private suspend fun serveMediaFile(
+    private fun serveMediaFile(
         socket: Socket,
         outputStream: OutputStream,
         file: File,
         headers: Map<String, String>,
-        uri: String,
         isHeadOnly: Boolean = false,
         clientIp: String? = null
     ) {
@@ -252,68 +243,12 @@ class HttpMediaServer(
             return
         }
 
-        val transcodeOption = getTranscodeOption()
-        val startSeconds = parseStartSeconds(headers, uri)
-
-        if (transcodeOption != TranscodeOption.NONE) {
-            serveTranscodedFile(
-                outputStream = outputStream,
-                file = file,
-                option = transcodeOption,
-                startSeconds = startSeconds,
-                isHeadOnly = isHeadOnly,
-                clientIp = clientIp
-            )
-            return
-        }
-
         serveRawFile(
             outputStream = outputStream,
             file = file,
             headers = headers,
             isHeadOnly = isHeadOnly,
             clientIp = clientIp
-        )
-    }
-
-    private suspend fun serveTranscodedFile(
-        outputStream: OutputStream,
-        file: File,
-        option: TranscodeOption,
-        startSeconds: Long,
-        isHeadOnly: Boolean,
-        clientIp: String?
-    ) {
-        val sendHeaderAction = {
-            val headerBuilder = StringBuilder()
-            headerBuilder.append("HTTP/1.1 200 OK\r\n")
-            headerBuilder.append("Content-Type: video/x-matroska\r\n")
-            headerBuilder.append("Accept-Ranges: none\r\n")
-            headerBuilder.append("Connection: keep-alive\r\n")
-            headerBuilder.append("transferMode.dlna.org: Streaming\r\n")
-            headerBuilder.append("contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000\r\n\r\n")
-
-            outputStream.write(headerBuilder.toString().toByteArray(Charsets.UTF_8))
-            outputStream.flush()
-        }
-
-        if (isHeadOnly) {
-            sendHeaderAction()
-            return
-        }
-
-        videoTranscoder.transcodeToStream(
-            inputFile = file,
-            option = option,
-            outputStream = outputStream,
-            startSeconds = startSeconds,
-            onStart = sendHeaderAction,
-            onProgress = {
-                if (clientIp != null) {
-                    clientAccessTimes[clientIp] = System.currentTimeMillis()
-                    _connectedClients.value = clientAccessTimes.keys.toSet()
-                }
-            }
         )
     }
 
@@ -414,38 +349,6 @@ class HttpMediaServer(
                 _connectedClients.value = clientAccessTimes.keys.toSet()
             }
         }
-    }
-
-    private fun parseStartSeconds(headers: Map<String, String>, uri: String): Long {
-        val timeSeekHeader = headers["timeseekrange.dlna.org"]
-        if (timeSeekHeader != null && timeSeekHeader.startsWith("npt=")) {
-            val nptValue = timeSeekHeader.removePrefix("npt=").substringBefore("-").trim()
-            val seconds = parseNptToSeconds(nptValue)
-            if (seconds > 0) return seconds
-        }
-
-        val uriTime = uri.substringAfter("time=", "").substringBefore("&")
-            .ifEmpty { uri.substringAfter("startTime=", "").substringBefore("&") }
-            .ifEmpty { uri.substringAfter("start=", "").substringBefore("&") }
-        if (uriTime.isNotEmpty()) {
-            val parsed = uriTime.toLongOrNull() ?: parseNptToSeconds(uriTime)
-            if (parsed > 0) return parsed
-        }
-
-        return 0L
-    }
-
-    private fun parseNptToSeconds(npt: String): Long {
-        if (npt.contains(":")) {
-            val parts = npt.split(":")
-            if (parts.size == 3) {
-                val hours = parts[0].toLongOrNull() ?: 0L
-                val minutes = parts[1].toLongOrNull() ?: 0L
-                val secs = parts[2].substringBefore(".").toLongOrNull() ?: 0L
-                return hours * 3600 + minutes * 60 + secs
-            }
-        }
-        return npt.substringBefore(".").toLongOrNull() ?: 0L
     }
 
     private fun sendXmlResponse(outputStream: OutputStream, xml: String) {

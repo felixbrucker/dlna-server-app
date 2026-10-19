@@ -257,8 +257,7 @@ object ContentDirectoryXml {
         startingIndex: Int,
         requestedCount: Int,
         sharedDirectories: List<SharedDirectory>,
-        baseUrl: String,
-        isTranscodeActive: Boolean = false
+        baseUrl: String
     ): String {
         val objectsList = mutableListOf<DidlObject>()
         var totalMatches = 0
@@ -342,7 +341,7 @@ object ContentDirectoryXml {
                             )
                         } else {
                             val mediaUrl = "$baseUrl/media?path=$encPath"
-                            objectsList.add(buildDidlItem(objectID, file, encPath, mediaUrl, sharedDirectories, isTranscodeActive))
+                            objectsList.add(buildDidlItem(objectID, file, encPath, mediaUrl, sharedDirectories))
                         }
                         returnedCount++
                     }
@@ -354,7 +353,7 @@ object ContentDirectoryXml {
             if (file.exists() && file.isFile) {
                 val encPath = encodePath(file.absolutePath)
                 val mediaUrl = "$baseUrl/media?path=$encPath"
-                objectsList.add(buildDidlItem("i_$encPath", file, encPath, mediaUrl, sharedDirectories, isTranscodeActive))
+                objectsList.add(buildDidlItem("i_$encPath", file, encPath, mediaUrl, sharedDirectories))
                 totalMatches = 1
                 returnedCount = 1
             }
@@ -374,14 +373,11 @@ object ContentDirectoryXml {
         file: File,
         encPath: String,
         mediaUrl: String,
-        sharedDirectories: List<SharedDirectory>,
-        isTranscodeActive: Boolean = false
+        sharedDirectories: List<SharedDirectory>
     ): DidlItem {
+        val mimeType = MimeTypeUtils.getMimeType(file)
         val upnpClass = MimeTypeUtils.getUpnpClass(file)
-        val isVideo = upnpClass.startsWith("object.item.videoItem")
-
-        val mimeType = if (isTranscodeActive && isVideo) "video/x-matroska" else MimeTypeUtils.getMimeType(file)
-        val dlnaProfile = if (isTranscodeActive && isVideo) "MATROSKA" else MimeTypeUtils.getDlnaProfile(file)
+        val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
         val modDate = isoDateFormat.format(Date(file.lastModified()))
 
         val metadata = MediaMetadataUtils.extractMetadata(file)
