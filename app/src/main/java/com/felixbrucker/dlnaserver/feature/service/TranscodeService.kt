@@ -43,14 +43,18 @@ class TranscodeService : Service() {
             subText = "--:--"
         )
 
-        val foregroundType = when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            else -> 0
-        }
-
-        if (foregroundType != 0) {
-            startForeground(NOTIFICATION_ID, initialNotification, foregroundType)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            startForeground(
+                NOTIFICATION_ID,
+                initialNotification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                initialNotification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
         } else {
             startForeground(NOTIFICATION_ID, initialNotification)
         }

@@ -49,6 +49,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -189,10 +191,11 @@ fun DashboardScreen(
 }
 
 private fun calculateTotalEtaString(jobs: List<TranscodeJob>): String {
-    val totalSeconds = jobs.filter { it.status == TranscodeJobStatus.RUNNING }.sumOf { it.etaSeconds }
-    if (totalSeconds == 0L) return "--:--"
-    val m = totalSeconds / 60
-    val s = totalSeconds % 60
+    val activeEtas = jobs.map { it.etaSeconds }.filter { it > 0L }
+    if (activeEtas.isEmpty()) return "--:--"
+    val avgSeconds = (activeEtas.sum().toDouble() / activeEtas.size.toDouble()).toLong()
+    val m = avgSeconds / 60
+    val s = avgSeconds % 60
     return String.format("%02d:%02d", m, s)
 }
 
@@ -205,6 +208,15 @@ private fun SearchFileDialog(
     onTranscodeClick: (DashboardMediaFileItem) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val softwareKeyboardController = LocalSoftwareKeyboardController.current
+
+    val executeSearch = {
+        softwareKeyboardController?.hide()
+        focusManager.clearFocus()
+        onSubmitSearch()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Search Video Files") },
@@ -224,7 +236,7 @@ private fun SearchFileDialog(
                         placeholder = { Text("Enter video filename...") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { onSubmitSearch() }),
+                        keyboardActions = KeyboardActions(onSearch = { executeSearch() }),
                         trailingIcon = {
                             if (uiState.searchInput.isNotEmpty()) {
                                 IconButton(onClick = onClearInput) {
@@ -234,7 +246,7 @@ private fun SearchFileDialog(
                         }
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(onClick = onSubmitSearch) {
+                    IconButton(onClick = executeSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
                 }
