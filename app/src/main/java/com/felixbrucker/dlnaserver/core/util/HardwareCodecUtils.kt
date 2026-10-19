@@ -5,6 +5,24 @@ import android.media.MediaCodecList
 import android.os.Build
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 
+fun Int.is10BitProfileFor(mimeType: String?): Boolean {
+    if (mimeType.isNullOrBlank()) return false
+    return when (mimeType.lowercase()) {
+        "video/hevc" -> this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
+            this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
+            this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
+        "video/avc" -> this == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
+        "video/x-vnd.on2.vp9" -> this == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
+            this == MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR ||
+            this == MediaCodecInfo.CodecProfileLevel.VP9Profile3 ||
+            this == MediaCodecInfo.CodecProfileLevel.VP9Profile3HDR
+        "video/av01" -> this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
+            this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
+            this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus
+        else -> false
+    }
+}
+
 object HardwareCodecUtils {
 
     fun isEncoderSupported(mimeType: String?): Boolean {
@@ -50,7 +68,7 @@ object HardwareCodecUtils {
             val caps = info.getCapabilitiesForType(mimeType) ?: return false
             val profileLevels = caps.profileLevels ?: emptyArray()
             val has10BitProfile = profileLevels.any { pl ->
-                is10BitProfileLevel(mimeType, pl.profile)
+                pl.profile.is10BitProfileFor(mimeType)
             }
             val colorFormats = caps.colorFormats ?: intArrayOf()
             val has10BitColorFormat = colorFormats.any { cf ->
@@ -59,23 +77,6 @@ object HardwareCodecUtils {
             has10BitProfile || has10BitColorFormat
         } catch (_: Throwable) {
             false
-        }
-    }
-
-    private fun is10BitProfileLevel(mimeType: String, profile: Int): Boolean {
-        return when (mimeType.lowercase()) {
-            "video/hevc" -> profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
-            "video/avc" -> profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
-            "video/x-vnd.on2.vp9" -> profile == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
-                profile == MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR ||
-                profile == MediaCodecInfo.CodecProfileLevel.VP9Profile3 ||
-                profile == MediaCodecInfo.CodecProfileLevel.VP9Profile3HDR
-            "video/av01" -> profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus
-            else -> false
         }
     }
 

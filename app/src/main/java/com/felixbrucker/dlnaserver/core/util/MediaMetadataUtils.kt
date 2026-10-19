@@ -86,7 +86,7 @@ object MediaMetadataUtils {
                     }
                     if (format.containsKey(MediaFormat.KEY_PROFILE)) {
                         val profile = format.getInteger(MediaFormat.KEY_PROFILE)
-                        if (is10BitProfile(mime, profile)) {
+                        if (profile.is10BitProfileFor(mime)) {
                             return true
                         }
                     }
@@ -127,23 +127,6 @@ object MediaMetadataUtils {
                 retriever.release()
             } catch (_: Throwable) {
             }
-        }
-    }
-
-    private fun is10BitProfile(mimeType: String, profile: Int): Boolean {
-        return when (mimeType.lowercase()) {
-            "video/hevc" -> profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
-            "video/avc" -> profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
-            "video/x-vnd.on2.vp9" -> profile == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
-                profile == MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR ||
-                profile == MediaCodecInfo.CodecProfileLevel.VP9Profile3 ||
-                profile == MediaCodecInfo.CodecProfileLevel.VP9Profile3HDR
-            "video/av01" -> profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
-                profile == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus
-            else -> false
         }
     }
 
