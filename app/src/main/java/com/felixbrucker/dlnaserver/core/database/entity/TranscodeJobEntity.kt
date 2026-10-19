@@ -14,7 +14,10 @@ data class TranscodeJobEntity(
     val status: TranscodeJobStatus = TranscodeJobStatus.QUEUED,
     val errorMessage: String? = null,
     val totalDurationMs: Long = 0L,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val bitDepthChange: String? = null,
+    val resolutionChange: String? = null,
+    val codecChange: String? = null
 ) {
     val inputFile: File get() = File(inputFilePath)
     val outputFile: File get() = File(outputFilePath)

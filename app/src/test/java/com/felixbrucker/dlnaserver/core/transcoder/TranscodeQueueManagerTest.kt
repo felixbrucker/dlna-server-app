@@ -172,4 +172,31 @@ class TranscodeQueueManagerTest {
         assertEquals("Error occurred", job.errorMessage)
         assertEquals(0f, job.progress)
     }
+
+    @Test
+    fun testJobsFlowIncludesMetadataChanges() = runTest {
+        val entity = TranscodeJobEntity(
+            id = "job-3",
+            inputFilePath = "/tmp/input3.mp4",
+            outputFilePath = "/tmp/transcoded_input3.mp4",
+            status = TranscodeJobStatus.QUEUED,
+            bitDepthChange = "10 bit -> 8 bit",
+            resolutionChange = "2592x1080 -> 1920x800",
+            codecChange = "x264 -> x265"
+        )
+        dbJobsFlow.value = listOf(entity)
+        val manager = TranscodeQueueManager(
+            powerManagerMock,
+            appSettingsRepositoryMock,
+            transcodeServiceLauncherMock,
+            transcodeJobDaoMock
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+        val job = manager.jobs.value.first()
+
+        assertEquals("10 bit -> 8 bit", job.bitDepthChange)
+        assertEquals("2592x1080 -> 1920x800", job.resolutionChange)
+        assertEquals("x264 -> x265", job.codecChange)
+    }
 }

@@ -464,6 +464,12 @@ private fun TranscodeJobRow(
                 }
             }
 
+            TranscodeJobBadges(
+                resolutionChange = job.resolutionChange,
+                bitDepthChange = job.bitDepthChange,
+                codecChange = job.codecChange
+            )
+
             if (job.status == TranscodeJobStatus.RUNNING) {
                 Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
@@ -490,6 +496,64 @@ private fun TranscodeJobRow(
                     text = "Error: ${job.errorMessage}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranscodeJobBadges(
+    resolutionChange: String?,
+    bitDepthChange: String?,
+    codecChange: String?
+) {
+    if (resolutionChange.isNullOrBlank() && bitDepthChange.isNullOrBlank() && codecChange.isNullOrBlank()) {
+        return
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        resolutionChange?.let {
+            Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        bitDepthChange?.let {
+            Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        codecChange?.let {
+            Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
         }

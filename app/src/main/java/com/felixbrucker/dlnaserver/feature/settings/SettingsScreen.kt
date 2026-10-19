@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
@@ -138,19 +140,21 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    // Codec selection
+                    // Encoder selection
                     var codecExpanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(
                         expanded = codecExpanded,
                         onExpandedChange = { codecExpanded = !codecExpanded }
                     ) {
                         val currentOption = uiState.transcodeSettings.option
-                        val hasHw = uiState.hardwareCodecSupportMap[currentOption] ?: false
+                        val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
+                        val selectedLabel = "${currentOption.codecName} (${if (currentOption.isHardware) "HW" else "SW"})${if (is10BitSupported) " • 10-bit supported" else ""}"
+
                         OutlinedTextField(
-                            value = currentOption.getDisplayLabel(hasHw),
+                            value = selectedLabel,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Codec") },
+                            label = { Text("Encoder") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = codecExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -160,10 +164,15 @@ fun SettingsScreen(
                             expanded = codecExpanded,
                             onDismissRequest = { codecExpanded = false }
                         ) {
-                            TranscodeOption.entries.forEach { option ->
-                                val hasHwSupport = uiState.hardwareCodecSupportMap[option] ?: false
+                            uiState.supportedOptions.forEach { option ->
+                                val supports10Bit = uiState.tenBitSupportMap[option] ?: true
                                 DropdownMenuItem(
-                                    text = { Text(option.getDisplayLabel(hasHwSupport)) },
+                                    text = {
+                                        EncoderOptionItem(
+                                            option = option,
+                                            supports10Bit = supports10Bit
+                                        )
+                                    },
                                     onClick = {
                                         viewModel.onTranscodeOptionSelected(option)
                                         codecExpanded = false
@@ -247,6 +256,47 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EncoderOptionItem(
+    option: TranscodeOption,
+    supports10Bit: Boolean
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = option.codecName,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Surface(
+            shape = MaterialTheme.shapes.extraSmall,
+            color = if (option.isHardware) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer
+        ) {
+            Text(
+                text = if (option.isHardware) "HW" else "SW",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (option.isHardware) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+        if (supports10Bit) {
+            Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text(
+                    text = "10-bit supported",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
             }
         }
     }

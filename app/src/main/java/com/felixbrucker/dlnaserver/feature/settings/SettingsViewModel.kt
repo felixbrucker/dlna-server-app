@@ -20,7 +20,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val transcodeSettings: TranscodeSettings = TranscodeSettings(),
     val sharedDirectories: List<SharedDirectory> = emptyList(),
-    val hardwareCodecSupportMap: Map<TranscodeOption, Boolean> = emptyMap()
+    val supportedOptions: List<TranscodeOption> = emptyList(),
+    val tenBitSupportMap: Map<TranscodeOption, Boolean> = emptyMap()
 )
 
 @HiltViewModel
@@ -29,9 +30,23 @@ class SettingsViewModel @Inject constructor(
     private val sharedDirectoryRepository: SharedDirectoryRepository
 ) : ViewModel() {
 
-    private val hardwareSupportMap: Map<TranscodeOption, Boolean> by lazy {
+    private val supportedOptionsList: List<TranscodeOption> by lazy {
+        TranscodeOption.entries.filter { option ->
+            if (option.isHardware) {
+                HardwareCodecUtils.hasHardwareEncoderSupport(option.mimeType)
+            } else {
+                true
+            }
+        }
+    }
+
+    private val tenBitSupportMapLazy: Map<TranscodeOption, Boolean> by lazy {
         TranscodeOption.entries.associateWith { option ->
-            HardwareCodecUtils.isEncoderSupported(option.mimeType)
+            if (option.isHardware) {
+                HardwareCodecUtils.has10BitEncoderSupport(option.mimeType)
+            } else {
+                true
+            }
         }
     }
 
@@ -42,13 +57,15 @@ class SettingsViewModel @Inject constructor(
         SettingsUiState(
             transcodeSettings = settings,
             sharedDirectories = directories,
-            hardwareCodecSupportMap = hardwareSupportMap
+            supportedOptions = supportedOptionsList,
+            tenBitSupportMap = tenBitSupportMapLazy
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsUiState(
-            hardwareCodecSupportMap = hardwareSupportMap
+            supportedOptions = supportedOptionsList,
+            tenBitSupportMap = tenBitSupportMapLazy
         )
     )
 

@@ -19,5 +19,8 @@ data class TranscodeJob(
     val eta: String = "--:--",
     val etaSeconds: Long = 0L,
     val errorMessage: String? = null,
-    val totalDurationMs: Long = 0L
+    val totalDurationMs: Long = 0L,
+    val bitDepthChange: String? = null,
+    val resolutionChange: String? = null,
+    val codecChange: String? = null
 )

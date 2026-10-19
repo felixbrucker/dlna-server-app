@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class TranscodeSettings(
-    val option: TranscodeOption = TranscodeOption.X265,
+    val option: TranscodeOption = TranscodeOption.X265_SW,
     val resolution: TranscodeResolution = TranscodeResolution.KEEP,
     val bitrateMb: Int = 3,
     val crf: Int = 20,
@@ -34,12 +34,12 @@ class AppSettingsRepository @Inject constructor(
     }
 
     val selectedTranscodeOption: Flow<TranscodeOption> = dataStore.data.map { preferences ->
-        val rawId = preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265.id
+        val rawId = preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265_SW.id
         TranscodeOption.fromId(rawId)
     }
 
     val transcodeSettings: Flow<TranscodeSettings> = dataStore.data.map { preferences ->
-        val option = TranscodeOption.fromId(preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265.id)
+        val option = TranscodeOption.fromId(preferences[PreferenceKeys.TRANSCODE_OPTION] ?: TranscodeOption.X265_SW.id)
         val resolution = TranscodeResolution.fromId(preferences[PreferenceKeys.TRANSCODE_RESOLUTION] ?: TranscodeResolution.KEEP.id)
         val bitrate = preferences[PreferenceKeys.TRANSCODE_BITRATE_MB] ?: 3
         val crf = preferences[PreferenceKeys.TRANSCODE_CRF] ?: 20

@@ -4,45 +4,75 @@ enum class TranscodeOption(
     val id: String,
     val codecName: String,
     val mimeType: String,
-    val ffmpegEncoderSw: String,
-    val ffmpegEncoderHw: String
+    val ffmpegEncoder: String,
+    val isHardware: Boolean
 ) {
-    X264(
-        id = "X264",
+    X264_SW(
+        id = "X264_SW",
         codecName = "x264",
         mimeType = "video/avc",
-        ffmpegEncoderSw = "libx264",
-        ffmpegEncoderHw = "h264_mediacodec"
+        ffmpegEncoder = "libx264",
+        isHardware = false
     ),
-    X265(
-        id = "X265",
+    X264_HW(
+        id = "X264_HW",
+        codecName = "x264",
+        mimeType = "video/avc",
+        ffmpegEncoder = "h264_mediacodec",
+        isHardware = true
+    ),
+    X265_SW(
+        id = "X265_SW",
         codecName = "x265",
         mimeType = "video/hevc",
-        ffmpegEncoderSw = "libx265",
-        ffmpegEncoderHw = "hevc_mediacodec"
+        ffmpegEncoder = "libx265",
+        isHardware = false
     ),
-    VP9(
-        id = "VP9",
+    X265_HW(
+        id = "X265_HW",
+        codecName = "x265",
+        mimeType = "video/hevc",
+        ffmpegEncoder = "hevc_mediacodec",
+        isHardware = true
+    ),
+    VP9_SW(
+        id = "VP9_SW",
         codecName = "VP9",
         mimeType = "video/x-vnd.on2.vp9",
-        ffmpegEncoderSw = "libvpx-vp9",
-        ffmpegEncoderHw = "vp9_mediacodec"
+        ffmpegEncoder = "libvpx-vp9",
+        isHardware = false
     ),
-    AV1(
-        id = "AV1",
+    VP9_HW(
+        id = "VP9_HW",
+        codecName = "VP9",
+        mimeType = "video/x-vnd.on2.vp9",
+        ffmpegEncoder = "vp9_mediacodec",
+        isHardware = true
+    ),
+    AV1_SW(
+        id = "AV1_SW",
         codecName = "AV1",
         mimeType = "video/av01",
-        ffmpegEncoderSw = "libsvtav1",
-        ffmpegEncoderHw = "av1_mediacodec"
+        ffmpegEncoder = "libsvtav1",
+        isHardware = false
+    ),
+    AV1_HW(
+        id = "AV1_HW",
+        codecName = "AV1",
+        mimeType = "video/av01",
+        ffmpegEncoder = "av1_mediacodec",
+        isHardware = true
     );
-
-    fun getDisplayLabel(hasHwSupport: Boolean): String {
-        return if (hasHwSupport) "$codecName (HW)" else "$codecName (SW)"
-    }
 
     companion object {
         fun fromId(id: String): TranscodeOption {
-            return entries.firstOrNull { it.id == id } ?: X265
+            return entries.firstOrNull { it.id == id } ?: when (id) {
+                "X264" -> X264_SW
+                "X265" -> X265_SW
+                "VP9" -> VP9_SW
+                "AV1" -> AV1_SW
+                else -> X265_SW
+            }
         }
     }
 }
