@@ -80,10 +80,14 @@ class TranscodeService : Service() {
                 val sumProgress = activeJobs.sumOf { it.progress.toDouble() }.toFloat()
                 val overallProgress = ((sumProgress / activeJobs.size.toFloat()) * 100).toInt()
 
-                val totalEtaSeconds = activeJobs.filter { it.status == TranscodeJobStatus.RUNNING }.sumOf { it.etaSeconds }
-                val subText = if (totalEtaSeconds > 0) {
-                    val m = totalEtaSeconds / 60
-                    val s = totalEtaSeconds % 60
+                val activeEtas = activeJobs.map { it.etaSeconds }.filter { it > 0L }
+                val avgEtaSeconds = if (activeEtas.isNotEmpty()) {
+                    (activeEtas.sum().toDouble() / activeEtas.size.toDouble()).toLong()
+                } else 0L
+
+                val subText = if (avgEtaSeconds > 0) {
+                    val m = avgEtaSeconds / 60
+                    val s = avgEtaSeconds % 60
                     String.format("%02d:%02d", m, s)
                 } else "--:--"
 
