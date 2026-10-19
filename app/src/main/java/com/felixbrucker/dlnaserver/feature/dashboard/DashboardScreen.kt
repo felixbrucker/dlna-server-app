@@ -209,19 +209,19 @@ private fun SearchFileDialog(
     onTranscodeClick: (DashboardMediaFileItem) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
-    val softwareKeyboardController = LocalSoftwareKeyboardController.current
-
-    val executeSearch = {
-        softwareKeyboardController?.hide()
-        focusManager.clearFocus(true)
-        onSubmitSearch()
-    }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Search Video Files") },
         text = {
+            val focusManager = LocalFocusManager.current
+            val softwareKeyboardController = LocalSoftwareKeyboardController.current
+
+            val executeSearch = {
+                softwareKeyboardController?.hide()
+                focusManager.clearFocus(true)
+                onSubmitSearch()
+            }
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -239,8 +239,6 @@ private fun SearchFileDialog(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-                                softwareKeyboardController?.hide()
-                                focusManager.clearFocus(true)
                                 executeSearch()
                             }
                         ),
@@ -253,7 +251,7 @@ private fun SearchFileDialog(
                         }
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(onClick = executeSearch) {
+                    IconButton(onClick = { executeSearch() }) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
                 }

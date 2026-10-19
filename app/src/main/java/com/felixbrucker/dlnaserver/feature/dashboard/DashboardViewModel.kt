@@ -68,13 +68,21 @@ class DashboardViewModel @Inject constructor(
                     job.status == TranscodeJobStatus.FAILED
         }
 
+        val updatedFiles = files.map { fileItem ->
+            val parent = fileItem.file.parentFile
+            val transcodedFile = parent?.let { File(it, "transcoded_${fileItem.filename}") }
+            val isEnqueuedOrActive = jobs.any { it.inputFile.absolutePath == fileItem.file.absolutePath }
+            val isDisabled = (transcodedFile?.exists() == true) || isEnqueuedOrActive
+            fileItem.copy(isTranscodeDisabled = isDisabled)
+        }
+
         DashboardUiState(
             serverInfo = serverInfo,
             permissionGranted = hasPerm,
             searchInput = sInput,
             submittedSearchQuery = sSubmitted,
             isSearchDialogOpen = searchOpen,
-            mediaFiles = files,
+            mediaFiles = updatedFiles,
             activeTranscodeJobs = visibleJobs,
             isTranscodeBottomSheetOpen = bottomSheetOpen,
             isScanningFiles = scanning
@@ -122,12 +130,10 @@ class DashboardViewModel @Inject constructor(
 
     fun enqueueTranscode(file: File) {
         transcodeQueueManager.enqueueJob(file)
-        scanSharedDirectories()
     }
 
     fun cancelTranscodeJob(jobId: String) {
         transcodeQueueManager.cancelJob(jobId)
-        scanSharedDirectories()
     }
 
     fun retryTranscodeJob(jobId: String) {
