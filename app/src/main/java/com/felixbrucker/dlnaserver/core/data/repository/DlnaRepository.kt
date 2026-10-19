@@ -9,7 +9,6 @@ import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import com.felixbrucker.dlnaserver.feature.service.DlnaService
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,8 +22,7 @@ import javax.inject.Singleton
 class DlnaRepository @Inject constructor(
     private val dlnaServerEngine: DlnaServerEngine,
     private val sharedDirectoryRepository: SharedDirectoryRepository,
-    private val appSettingsRepository: AppSettingsRepository,
-    @ApplicationContext private val context: Context
+    private val appSettingsRepository: AppSettingsRepository
 ) {
 
     @Volatile
@@ -33,7 +31,6 @@ class DlnaRepository @Inject constructor(
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        dlnaServerEngine.setContextProvider { context }
         dlnaServerEngine.setSharedDirectoriesProvider {
             runBlocking(Dispatchers.IO) {
                 sharedDirectoryRepository.getEnabledDirectoriesSync()

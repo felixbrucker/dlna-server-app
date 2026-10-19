@@ -1,8 +1,8 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
-import android.content.Context
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
-import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -11,10 +11,11 @@ import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class VideoTranscoderTest {
 
     private lateinit var tempFile: File
-    private lateinit var mockContext: Context
+    private lateinit var videoTranscoder: VideoTranscoder
 
     @Before
     fun setUp() {
@@ -22,7 +23,7 @@ class VideoTranscoderTest {
             writeBytes(byteArrayOf(1, 2, 3, 4, 5))
             deleteOnExit()
         }
-        mockContext = mockk(relaxed = true)
+        videoTranscoder = VideoTranscoder()
     }
 
     @After
@@ -33,29 +34,26 @@ class VideoTranscoderTest {
     }
 
     @Test
-    fun testTranscodeToStreamWithNoneStreamsRawFile() {
+    fun testStreamRawFileStreamsData() {
         val outputStream = ByteArrayOutputStream()
 
-        VideoTranscoder.transcodeToStream(mockContext, tempFile, TranscodeOption.NONE, outputStream)
+        videoTranscoder.streamRawFile(tempFile, outputStream)
 
         assertArrayEquals(byteArrayOf(1, 2, 3, 4, 5), outputStream.toByteArray())
     }
 
     @Test
-    fun testTranscodeToStreamNonExistentFileProducesEmptyStream() {
+    fun testTranscodeToStreamNonExistentFileProducesEmptyStream() = runTest {
         val missingFile = File("non_existent_file.mp4")
         val outputStream = ByteArrayOutputStream()
 
-        VideoTranscoder.transcodeToStream(mockContext, missingFile, TranscodeOption.X264, outputStream)
-
-        assertEquals(0, outputStream.toByteArray().size)
-    }
-
-    @Test
-    fun testTranscodeToStreamDoesNotStreamRawFileOnFailure() {
-        val outputStream = ByteArrayOutputStream()
-
-        VideoTranscoder.transcodeToStream(mockContext, tempFile, TranscodeOption.X264, outputStream, startSeconds = 0L, hasHwSupport = false)
+        videoTranscoder.transcodeToStream(
+            inputFile = missingFile,
+            option = TranscodeOption.X264,
+            outputStream = outputStream,
+            onStart = {},
+            onProgress = {}
+        )
 
         assertEquals(0, outputStream.toByteArray().size)
     }

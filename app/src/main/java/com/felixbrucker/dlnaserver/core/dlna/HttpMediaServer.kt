@@ -1,6 +1,5 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
-import android.content.Context
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.transcoder.VideoTranscoder
@@ -21,17 +20,15 @@ import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 
 class HttpMediaServer(
     private val port: Int = 8192,
-    private val contextProvider: (() -> Context)? = null,
+    private val videoTranscoder: VideoTranscoder = VideoTranscoder(),
     private val getTranscodeOption: () -> TranscodeOption = { TranscodeOption.NONE },
     private val getSharedDirectories: () -> List<SharedDirectory>
 ) {
     private var serverSocket: ServerSocket? = null
     private var serverJob: Job? = null
-    private val executor = Executors.newCachedThreadPool()
 
     private val clientAccessTimes = ConcurrentHashMap<String, Long>()
     private val _connectedClients = MutableStateFlow<Set<String>>(emptySet())
@@ -64,7 +61,7 @@ class HttpMediaServer(
                     } catch (_: Exception) {
                         break
                     }
-                    executor.execute {
+                    launch(Dispatchers.IO) {
                         handleClient(socket, ipAddress)
                     }
                 }
@@ -88,7 +85,7 @@ class HttpMediaServer(
         _connectedClients.value = emptySet()
     }
 
-    private fun handleClient(socket: Socket, hostIp: String) {
+    private suspend fun handleClient(socket: Socket, hostIp: String) {
         try {
             val clientIp = socket.inetAddress?.hostAddress
             if (clientIp != null) {
@@ -229,7 +226,7 @@ class HttpMediaServer(
 </s:Envelope>"""
     }
 
-    private fun serveMediaFile(
+    private suspend fun serveMediaFile(
         socket: Socket,
         outputStream: OutputStream,
         file: File,
@@ -279,16 +276,14 @@ class HttpMediaServer(
         )
     }
 
-    private fun serveTranscodedFile(
+    private suspend fun serveTranscodedFile(
         outputStream: OutputStream,
         file: File,
         option: TranscodeOption,
         startSeconds: Long,
         isHeadOnly: Boolean,
         clientIp: String?
-    ): Boolean {
-        val activeContext = contextProvider?.invoke() ?: return false
-
+    ) {
         val sendHeaderAction = {
             val headerBuilder = StringBuilder()
             headerBuilder.append("HTTP/1.1 200 OK\r\n")
@@ -304,11 +299,10 @@ class HttpMediaServer(
 
         if (isHeadOnly) {
             sendHeaderAction()
-            return true
+            return
         }
 
-        return VideoTranscoder.transcodeToStream(
-            context = activeContext,
+        videoTranscoder.transcodeToStream(
             inputFile = file,
             option = option,
             outputStream = outputStream,
