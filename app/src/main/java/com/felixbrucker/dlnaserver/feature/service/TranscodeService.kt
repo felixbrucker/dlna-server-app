@@ -40,7 +40,7 @@ class TranscodeService : Service() {
             title = "Transcoding Service",
             jobLines = listOf("Preparing jobs..."),
             overallProgress = 0,
-            subText = "--:--"
+            subText = "--:-- remaining"
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
@@ -89,14 +89,16 @@ class TranscodeService : Service() {
                     (activeEtas.sum().toDouble() / activeEtas.size.toDouble()).toLong()
                 } else 0L
 
-                val subText = if (avgEtaSeconds > 0) {
+                val formattedEta = if (avgEtaSeconds > 0) {
                     val m = avgEtaSeconds / 60
                     val s = avgEtaSeconds % 60
                     String.format("%02d:%02d", m, s)
                 } else "--:--"
 
+                val subText = "$formattedEta remaining"
+
                 val jobLines = activeJobs.map { job ->
-                    val truncatedName = truncateFilename(job.inputFile.name, 18)
+                    val truncatedName = truncateFilename(job.inputFile.name, 32)
                     when (job.status) {
                         TranscodeJobStatus.RUNNING -> {
                             val percent = (job.progress * 100).toInt()

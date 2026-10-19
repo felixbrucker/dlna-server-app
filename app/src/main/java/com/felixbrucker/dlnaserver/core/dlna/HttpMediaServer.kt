@@ -156,7 +156,16 @@ class HttpMediaServer @Inject constructor(
                     sendXmlResponse(outputStream, ContentDirectoryXml.getConnectionManagerScpd())
                 }
                 uri.startsWith("/ctl/ContentDirectory") -> {
-                    updateClientActivity(clientIp, userAgent, "Browsing Folder")
+                    val objectId = extractTagValue(body, "ObjectID") ?: "0"
+                    val folderName = if (objectId == "0") {
+                        "Root"
+                    } else if (objectId.startsWith("f_")) {
+                        val path = ContentDirectoryXml.decodePath(objectId.removePrefix("f_"))
+                        File(path).name.ifEmpty { path }
+                    } else {
+                        "Folder"
+                    }
+                    updateClientActivity(clientIp, userAgent, "Browsing: $folderName")
                     val responseXml = handleContentDirectoryControl(body, baseUrl)
                     sendXmlResponse(outputStream, responseXml)
                 }

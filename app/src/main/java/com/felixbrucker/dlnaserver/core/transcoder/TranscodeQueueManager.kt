@@ -34,6 +34,14 @@ class TranscodeQueueManager @Inject constructor(
 
     private val runningJobTasks = ConcurrentHashMap<String, Job>()
 
+    init {
+        scope.launch {
+            appSettingsRepository.transcodeSettings.collect {
+                processQueue()
+            }
+        }
+    }
+
     fun enqueueJob(inputFile: File) {
         val parentDir = inputFile.parentFile ?: return
         val outputFileName = "transcoded_${inputFile.name}"
