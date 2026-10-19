@@ -6,6 +6,7 @@ import com.arthenica.ffmpegkit.FFmpegKit
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
+import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -131,7 +132,15 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = job.outputFile
         val option = settings.option
 
+        val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
         val hasHw = HardwareCodecUtils.isEncoderSupported(option.mimeType)
+        val encoderSupports10Bit = if (hasHw) {
+            HardwareCodecUtils.has10BitEncoderSupport(option)
+        } else {
+            true
+        }
+        val is10BitEncoding = isSource10Bit && encoderSupports10Bit
+
         val videoEncoder = if (hasHw) {
             option.ffmpegEncoderHw
         } else {
@@ -158,6 +167,15 @@ class TranscodeQueueManager @Inject constructor(
 
             add("-c:v")
             add(videoEncoder)
+
+            if (is10BitEncoding) {
+                add("-pix_fmt")
+                if (hasHw) {
+                    add("p010le")
+                } else {
+                    add("yuv420p10le")
+                }
+            }
 
             if (hasHw) {
                 add("-b:v")
