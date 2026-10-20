@@ -68,6 +68,7 @@ class TranscodeQueueManager @Inject constructor(
                 etaSeconds = progress?.etaSeconds ?: 0L,
                 errorMessage = entity.errorMessage,
                 totalDurationMs = entity.totalDurationMs,
+                isSource10Bit = entity.isSource10Bit,
                 bitDepthChange = entity.bitDepthChange,
                 resolutionChange = entity.resolutionChange,
                 videoCodecChange = entity.videoCodecChange,
@@ -134,45 +135,51 @@ class TranscodeQueueManager @Inject constructor(
             val settings = appSettingsRepository.transcodeSettings.first()
             val option = settings.option
 
-            val trackCodecs = MediaMetadataUtils.extractTrackCodecs(inputFile)
-            val isSource10Bit = trackCodecs.is10Bit
+            val trackMetadata = MediaMetadataUtils.extractTrackMetadata(inputFile)
+            val firstVideo = trackMetadata.videoTracks.firstOrNull()
+
+            val isSource10Bit = firstVideo?.is10Bit ?: false
             val isTarget10Bit = isSource10Bit && option.is10BitSupported
 
             val bitDepthChange = if (isSource10Bit && !isTarget10Bit && option != VideoTranscodeOption.KEEP) {
                 "10 bit → 8 bit"
             } else null
 
-            val sourceDims = MediaMetadataUtils.getVideoDimensions(inputFile)
-            val resolutionChange = if (sourceDims != null && option != VideoTranscodeOption.KEEP) {
-                val (srcW, srcH) = sourceDims
+            val resolutionChange = if (firstVideo != null && firstVideo.width > 0 && option != VideoTranscodeOption.KEEP) {
+                val srcW = firstVideo.width
+                val srcH = firstVideo.height
                 val targetW = when (settings.resolution) {
                     TranscodeResolution.RES_4K -> 3840
                     TranscodeResolution.RES_1080P -> 1920
                     TranscodeResolution.RES_720P -> 1280
                     TranscodeResolution.KEEP -> srcW
                 }
-                if (targetW < srcW) {
+                if (targetW < srcW && srcW > 0) {
                     val calcH = round((srcH.toDouble() * targetW.toDouble() / srcW.toDouble()) / 2.0).toInt() * 2
                     "${srcW}x${srcH} → ${targetW}x${calcH}"
                 } else null
             } else null
 
-            val sourceVideoCodec = trackCodecs.videoCodec
+            val sourceVideoCodec = firstVideo?.codec
             val targetVideoCodec = option.codecName
             val videoCodecChange = if (option != VideoTranscodeOption.KEEP && !sourceVideoCodec.isNullOrBlank() && !sourceVideoCodec.equals(targetVideoCodec, ignoreCase = true)) {
                 "$sourceVideoCodec → $targetVideoCodec"
             } else null
 
-            val sourceAudioCodec = trackCodecs.audioCodec
+            val sourceAudioCodecs = trackMetadata.audioTracks.map { it.codec }.distinct()
             val targetAudioCodec = settings.audioOption.codecName
-            val audioCodecChange = if (settings.audioOption != AudioTranscodeOption.KEEP && !sourceAudioCodec.isNullOrBlank() && !sourceAudioCodec.equals(targetAudioCodec, ignoreCase = true)) {
-                "$sourceAudioCodec → $targetAudioCodec"
+            val audioCodecChange = if (settings.audioOption != AudioTranscodeOption.KEEP && sourceAudioCodecs.isNotEmpty()) {
+                if (!sourceAudioCodecs.all { it.equals(targetAudioCodec, ignoreCase = true) }) {
+                    "${sourceAudioCodecs.joinToString(", ")} → $targetAudioCodec"
+                } else null
             } else null
 
-            val sourceSubCodec = trackCodecs.subtitleCodec
+            val sourceSubCodecs = trackMetadata.subtitleTracks.map { it.codec }.distinct()
             val targetSubCodec = settings.subtitleOption.codecName
-            val subtitleCodecChange = if (settings.subtitleOption != SubtitleTranscodeOption.KEEP && !sourceSubCodec.isNullOrBlank() && !sourceSubCodec.equals(targetSubCodec, ignoreCase = true)) {
-                "$sourceSubCodec → $targetSubCodec"
+            val subtitleCodecChange = if (settings.subtitleOption != SubtitleTranscodeOption.KEEP && sourceSubCodecs.isNotEmpty()) {
+                if (!sourceSubCodecs.all { it.equals(targetSubCodec, ignoreCase = true) }) {
+                    "${sourceSubCodecs.joinToString(", ")} → $targetSubCodec"
+                } else null
             } else null
 
             val entity = TranscodeJobEntity(
@@ -181,6 +188,7 @@ class TranscodeQueueManager @Inject constructor(
                 outputFilePath = outputFile.absolutePath,
                 status = TranscodeJobStatus.QUEUED,
                 totalDurationMs = durationMs,
+                isSource10Bit = isSource10Bit,
                 bitDepthChange = bitDepthChange,
                 resolutionChange = resolutionChange,
                 videoCodecChange = videoCodecChange,
@@ -248,7 +256,7 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = job.outputFile
         val option = settings.option
 
-        val isSource10Bit = MediaMetadataUtils.extractTrackCodecs(inputFile).is10Bit
+        val isSource10Bit = job.isSource10Bit
         val hasHw = option.isHardware
         val is10BitEncoding = isSource10Bit && option.is10BitSupported
 

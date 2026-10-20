@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 4,
-    "identityHash": "e5f6cd9771345df8c2d6f89f80f0f91a",
+    "version": 5,
+    "identityHash": "4e165f47c930affb1b2d43d61d2bdf2d",
     "entities": [
       {
         "tableName": "shared_directories",
@@ -59,7 +59,7 @@
       },
       {
         "tableName": "transcode_jobs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `inputFilePath` TEXT NOT NULL, `outputFilePath` TEXT NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `totalDurationMs` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `bitDepthChange` TEXT, `resolutionChange` TEXT, `videoCodecChange` TEXT, `audioCodecChange` TEXT, `subtitleCodecChange` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `inputFilePath` TEXT NOT NULL, `outputFilePath` TEXT NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `totalDurationMs` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `isSource10Bit` INTEGER NOT NULL DEFAULT 0, `bitDepthChange` TEXT, `resolutionChange` TEXT, `videoCodecChange` TEXT, `audioCodecChange` TEXT, `subtitleCodecChange` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -103,6 +103,13 @@
             "notNull": true
           },
           {
+            "fieldPath": "isSource10Bit",
+            "columnName": "isSource10Bit",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
             "fieldPath": "bitDepthChange",
             "columnName": "bitDepthChange",
             "affinity": "TEXT"
@@ -138,7 +145,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e5f6cd9771345df8c2d6f89f80f0f91a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4e165f47c930affb1b2d43d61d2bdf2d')"
     ]
   }
 }

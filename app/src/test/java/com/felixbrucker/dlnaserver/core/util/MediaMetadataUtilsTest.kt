@@ -8,12 +8,12 @@ import java.io.File
 class MediaMetadataUtilsTest {
 
     @Test
-    fun testExtractTrackCodecsWithNonExistentFileReturnsEmptyCodecs() {
+    fun testExtractTrackMetadataWithNonExistentFileReturnsEmptyMetadata() {
         val nonExistentFile = File("/tmp/non_existent_video_file.mp4")
 
-        val result = MediaMetadataUtils.extractTrackCodecs(nonExistentFile)
+        val result = MediaMetadataUtils.extractTrackMetadata(nonExistentFile)
 
-        assertEquals(MediaTrackCodecs(), result)
+        assertEquals(MediaTrackMetadata(), result)
     }
 
     @Test

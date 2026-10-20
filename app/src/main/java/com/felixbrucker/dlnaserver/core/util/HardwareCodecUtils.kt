@@ -6,20 +6,20 @@ import android.os.Build
 import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
 import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
 
-fun Int.is10BitProfileFor(mimeType: String?): Boolean {
-    if (mimeType.isNullOrBlank()) return false
-    return when (mimeType.lowercase()) {
-        "video/hevc" -> this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
+fun Int.is10BitProfileFor(codec: String): Boolean {
+    val isApi29 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    return when (codec.lowercase()) {
+        "x265" -> this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
             this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
-            this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
-        "video/avc" -> this == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
-        "video/x-vnd.on2.vp9" -> this == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
+            (isApi29 && this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus)
+        "x264" -> this == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
+        "vp9" -> this == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
             this == MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR ||
             this == MediaCodecInfo.CodecProfileLevel.VP9Profile3 ||
             this == MediaCodecInfo.CodecProfileLevel.VP9Profile3HDR
-        "video/av01" -> this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
+        "av1" -> isApi29 && (this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
             this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
-            this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus
+            this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus)
         else -> false
     }
 }

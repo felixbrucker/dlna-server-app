@@ -1,9 +1,8 @@
 package com.felixbrucker.dlnaserver.core.util
 
-import android.media.MediaExtractor
-import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.os.Build
+import com.arthenica.ffmpegkit.FFprobeKit
 import java.io.File
 
 data class ExtractedMediaMetadata(
@@ -17,11 +16,25 @@ data class ExtractedMediaMetadata(
     val is10Bit: Boolean = false
 )
 
-data class MediaTrackCodecs(
-    val videoCodec: String? = null,
-    val audioCodec: String? = null,
-    val subtitleCodec: String? = null,
-    val is10Bit: Boolean = false
+data class VideoTrack(
+    val codec: String,
+    val width: Int,
+    val height: Int,
+    val is10Bit: Boolean
+)
+
+data class AudioTrack(
+    val codec: String
+)
+
+data class SubtitleTrack(
+    val codec: String
+)
+
+data class MediaTrackMetadata(
+    val videoTracks: List<VideoTrack> = emptyList(),
+    val audioTracks: List<AudioTrack> = emptyList(),
+    val subtitleTracks: List<SubtitleTrack> = emptyList()
 )
 
 object MediaMetadataUtils {
@@ -52,7 +65,8 @@ object MediaMetadataUtils {
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
             val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
 
-            val trackCodecs = extractTrackCodecs(file)
+            val trackMetadata = extractTrackMetadata(file)
+            val is10Bit = trackMetadata.videoTracks.firstOrNull()?.is10Bit ?: false
 
             ExtractedMediaMetadata(
                 durationFormatted = durationStr,
@@ -62,7 +76,7 @@ object MediaMetadataUtils {
                 artist = artist,
                 album = album,
                 genre = genre,
-                is10Bit = trackCodecs.is10Bit
+                is10Bit = is10Bit
             )
         } catch (_: Exception) {
             ExtractedMediaMetadata()
@@ -74,94 +88,59 @@ object MediaMetadataUtils {
         }
     }
 
-    fun extractTrackCodecs(file: File): MediaTrackCodecs {
-        if (!file.exists() || !file.isFile) return MediaTrackCodecs()
+    fun extractTrackMetadata(file: File): MediaTrackMetadata {
+        if (!file.exists() || !file.isFile) return MediaTrackMetadata()
 
-        val extractor = MediaExtractor()
         return try {
-            extractor.setDataSource(file.absolutePath)
-            var videoCodec: String? = null
-            var audioCodec: String? = null
-            var subtitleCodec: String? = null
-            var is10Bit = false
+            val infoSession = FFprobeKit.getMediaInformation(file.absolutePath)
+            val streams = infoSession?.mediaInformation?.streams ?: emptyList()
+            val videoTracks = mutableListOf<VideoTrack>()
+            val audioTracks = mutableListOf<AudioTrack>()
+            val subtitleTracks = mutableListOf<SubtitleTrack>()
 
-            for (i in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(i)
-                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+            for (stream in streams) {
+                if (stream == null) continue
+                val type = stream.type ?: continue
+                val codec = stream.codec ?: continue
 
-                if (mime.startsWith("video/")) {
-                    if (videoCodec == null) {
-                        videoCodec = when (mime.lowercase()) {
-                            "video/avc" -> "x264"
-                            "video/hevc" -> "x265"
-                            "video/x-vnd.on2.vp9" -> "VP9"
-                            "video/av01" -> "AV1"
-                            "video/mp4v-es" -> "MPEG4"
-                            "video/3gpp" -> "H263"
-                            else -> mime.removePrefix("video/").uppercase()
-                        }
+                if (type.equals("video", ignoreCase = true)) {
+                    val videoCodec = when (codec.lowercase()) {
+                        "h264" -> "x264"
+                        "hevc" -> "x265"
+                        else -> codec.uppercase()
                     }
+                    val profile = stream.getNumberProperty("profile")?.toInt() ?: 0
+                    val pixFmt = stream.getStringProperty("pix_fmt") ?: stream.format ?: ""
+                    val is10Bit = pixFmt == "yuv420p10le" || profile.is10BitProfileFor(videoCodec)
+                    val width = stream.width?.toInt() ?: stream.getNumberProperty("width")?.toInt() ?: 0
+                    val height = stream.height?.toInt() ?: stream.getNumberProperty("height")?.toInt() ?: 0
 
-                    if (!is10Bit) {
-                        if (format.containsKey(MediaFormat.KEY_PROFILE)) {
-                            val profile = format.getInteger(MediaFormat.KEY_PROFILE)
-                            if (profile.is10BitProfileFor(mime)) {
-                                is10Bit = true
-                            }
-                        }
-                        if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
-                            val transfer = format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
-                            if (transfer == MediaFormat.COLOR_TRANSFER_HLG || transfer == MediaFormat.COLOR_TRANSFER_ST2084) {
-                                is10Bit = true
-                            }
-                        }
-                        if (format.containsKey("bits-per-sample") && format.getInteger("bits-per-sample") == 10) {
-                            is10Bit = true
-                        }
-                        if (format.containsKey("bit-depth") && format.getInteger("bit-depth") == 10) {
-                            is10Bit = true
-                        }
+                    videoTracks.add(VideoTrack(videoCodec, width, height, is10Bit))
+                } else if (type.equals("audio", ignoreCase = true)) {
+                    val audioCodec = when (codec.lowercase()) {
+                        "vorbis" -> "Vorbis"
+                        "opus" -> "Opus"
+                        else -> codec.uppercase()
                     }
-                } else if (mime.startsWith("audio/")) {
-                    if (audioCodec == null) {
-                        audioCodec = when (mime.lowercase()) {
-                            "audio/mp4a-latm" -> "AAC"
-                            "audio/ac3" -> "AC3"
-                            "audio/eac3" -> "EAC3"
-                            "audio/flac" -> "FLAC"
-                            "audio/mpeg" -> "MP3"
-                            "audio/vorbis" -> "Vorbis"
-                            "audio/opus" -> "Opus"
-                            "audio/raw" -> "PCM"
-                            else -> mime.removePrefix("audio/").uppercase()
-                        }
+                    audioTracks.add(AudioTrack(audioCodec))
+                } else if (type.equals("subtitle", ignoreCase = true)) {
+                    val subtitleCodec = when (codec.lowercase()) {
+                        "webvtt" -> "WebVTT"
+                        "ass", "ssa" -> "ASS"
+                        "subrip" -> "SRT"
+                        else -> codec.uppercase()
                     }
-                } else if (mime.startsWith("text/") || mime.startsWith("subtitle/")) {
-                    if (subtitleCodec == null) {
-                        subtitleCodec = when (mime.lowercase()) {
-                            "text/vtt" -> "WebVTT"
-                            "text/x-subrip" -> "SRT"
-                            "text/ssa" -> "ASS"
-                            "text/ass" -> "ASS"
-                            else -> mime.removePrefix("text/").removePrefix("subtitle/").uppercase()
-                        }
-                    }
+                    subtitleTracks.add(SubtitleTrack(subtitleCodec))
                 }
             }
 
-            MediaTrackCodecs(
-                videoCodec = videoCodec,
-                audioCodec = audioCodec,
-                subtitleCodec = subtitleCodec,
-                is10Bit = is10Bit
+            MediaTrackMetadata(
+                videoTracks = videoTracks,
+                audioTracks = audioTracks,
+                subtitleTracks = subtitleTracks
             )
         } catch (_: Throwable) {
-            MediaTrackCodecs()
-        } finally {
-            try {
-                extractor.release()
-            } catch (_: Throwable) {
-            }
+            MediaTrackMetadata()
         }
     }
 
