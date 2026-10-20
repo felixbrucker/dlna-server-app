@@ -2,7 +2,6 @@ package com.felixbrucker.dlnaserver.feature.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -263,28 +261,25 @@ private fun VideoOptionsSection(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(modifier = Modifier.widthIn(min = 200.dp)) {
-                VideoEncoderDropdown(
-                    uiState = uiState,
-                    onVideoTranscodeOptionSelected = onVideoTranscodeOptionSelected
-                )
-            }
+            VideoEncoderDropdown(
+                uiState = uiState,
+                onVideoTranscodeOptionSelected = onVideoTranscodeOptionSelected,
+                modifier = Modifier.weight(1f)
+            )
 
             if (currentOption != VideoTranscodeOption.KEEP) {
-                Box(modifier = Modifier.widthIn(min = 180.dp)) {
-                    ResolutionDropdown(
-                        uiState = uiState,
-                        onResolutionSelected = onResolutionSelected
-                    )
-                }
+                ResolutionDropdown(
+                    uiState = uiState,
+                    onResolutionSelected = onResolutionSelected,
+                    modifier = Modifier.weight(1f)
+                )
 
                 if (!currentOption.isHardware && currentOption.supportsPresets) {
-                    Box(modifier = Modifier.widthIn(min = 180.dp)) {
-                        VideoPresetDropdown(
-                            uiState = uiState,
-                            onVideoTranscodePresetSelected = onVideoTranscodePresetSelected
-                        )
-                    }
+                    VideoPresetDropdown(
+                        uiState = uiState,
+                        onVideoTranscodePresetSelected = onVideoTranscodePresetSelected,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -369,12 +364,14 @@ private fun GeneralOptionsSection(
 @Composable
 private fun VideoEncoderDropdown(
     uiState: SettingsUiState,
-    onVideoTranscodeOptionSelected: (VideoTranscodeOption) -> Unit
+    onVideoTranscodeOptionSelected: (VideoTranscodeOption) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var codecExpanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = codecExpanded,
-        onExpandedChange = { codecExpanded = !codecExpanded }
+        onExpandedChange = { codecExpanded = !codecExpanded },
+        modifier = modifier
     ) {
         val currentOption = uiState.transcodeSettings.option
         val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
@@ -421,12 +418,14 @@ private fun VideoEncoderDropdown(
 @Composable
 private fun ResolutionDropdown(
     uiState: SettingsUiState,
-    onResolutionSelected: (TranscodeResolution) -> Unit
+    onResolutionSelected: (TranscodeResolution) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var resolutionExpanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = resolutionExpanded,
-        onExpandedChange = { resolutionExpanded = !resolutionExpanded }
+        onExpandedChange = { resolutionExpanded = !resolutionExpanded },
+        modifier = modifier
     ) {
         OutlinedTextField(
             value = uiState.transcodeSettings.resolution.label,
@@ -459,12 +458,14 @@ private fun ResolutionDropdown(
 @Composable
 private fun VideoPresetDropdown(
     uiState: SettingsUiState,
-    onVideoTranscodePresetSelected: (VideoTranscodePreset) -> Unit
+    onVideoTranscodePresetSelected: (VideoTranscodePreset) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var presetExpanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = presetExpanded,
-        onExpandedChange = { presetExpanded = !presetExpanded }
+        onExpandedChange = { presetExpanded = !presetExpanded },
+        modifier = modifier
     ) {
         OutlinedTextField(
             value = uiState.transcodeSettings.preset.label,
@@ -497,12 +498,14 @@ private fun VideoPresetDropdown(
 @Composable
 private fun AudioEncoderDropdown(
     uiState: SettingsUiState,
-    onAudioTranscodeOptionSelected: (AudioTranscodeOption) -> Unit
+    onAudioTranscodeOptionSelected: (AudioTranscodeOption) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
     ) {
         val current = uiState.transcodeSettings.audioOption
         val selectedText = if (current == AudioTranscodeOption.KEEP) {
@@ -542,12 +545,14 @@ private fun AudioEncoderDropdown(
 @Composable
 private fun SubtitleEncoderDropdown(
     uiState: SettingsUiState,
-    onSubtitleTranscodeOptionSelected: (SubtitleTranscodeOption) -> Unit
+    onSubtitleTranscodeOptionSelected: (SubtitleTranscodeOption) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
     ) {
         OutlinedTextField(
             value = uiState.transcodeSettings.subtitleOption.codecName,
