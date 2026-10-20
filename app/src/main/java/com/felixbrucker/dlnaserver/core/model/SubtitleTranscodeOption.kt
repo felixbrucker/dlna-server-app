@@ -7,7 +7,7 @@ enum class SubtitleTranscodeOption(
 ) {
     KEEP(
         id = "KEEP",
-        codecName = "Keep",
+        codecName = "Keep original",
         ffmpegEncoder = "copy"
     ),
     ASS(

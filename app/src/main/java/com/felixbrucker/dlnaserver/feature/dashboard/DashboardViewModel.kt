@@ -139,7 +139,7 @@ class DashboardViewModel @Inject constructor(
         transcodeQueueManager.cancelJob(jobId)
     }
 
-    fun retryTranscodeJob(jobId: String) {
+    fun retryJob(jobId: String) {
         transcodeQueueManager.retryJob(jobId)
     }
 
@@ -166,7 +166,7 @@ class DashboardViewModel @Inject constructor(
                         .filter { file ->
                             file.isFile &&
                                     !file.name.startsWith("transcoded_") &&
-                                    file.name.contains(query, ignoreCase = true)
+                                    file.absolutePath.contains(query, ignoreCase = true)
                         }
                         .forEach { file ->
                             val mime = MimeTypeUtils.getMimeType(file)

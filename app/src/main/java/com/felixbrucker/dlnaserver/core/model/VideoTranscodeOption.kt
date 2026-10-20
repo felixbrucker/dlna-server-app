@@ -11,7 +11,7 @@ enum class VideoTranscodeOption(
 ) {
     KEEP(
         id = "KEEP",
-        codecName = "Keep",
+        codecName = "Keep original",
         mimeType = "",
         ffmpegEncoder = "copy",
         isHardware = false

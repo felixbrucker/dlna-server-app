@@ -2,7 +2,10 @@ package com.felixbrucker.dlnaserver.feature.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -22,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -103,27 +108,15 @@ fun SettingsScreen(
                 onDeleteDirectory = { viewModel.deleteSharedDirectory(it) }
             )
 
-            VideoOptionsCard(
+            TranscodingOptionsCard(
                 uiState = uiState,
                 onVideoTranscodeOptionSelected = { viewModel.onVideoTranscodeOptionSelected(it) },
                 onResolutionSelected = { viewModel.onResolutionSelected(it) },
                 onVideoTranscodePresetSelected = { viewModel.onVideoTranscodePresetSelected(it) },
                 onBitrateChanged = { viewModel.onBitrateChanged(it) },
-                onCrfChanged = { viewModel.onCrfChanged(it) }
-            )
-
-            AudioOptionsCard(
-                uiState = uiState,
-                onAudioTranscodeOptionSelected = { viewModel.onAudioTranscodeOptionSelected(it) }
-            )
-
-            SubtitleOptionsCard(
-                uiState = uiState,
-                onSubtitleTranscodeOptionSelected = { viewModel.onSubtitleTranscodeOptionSelected(it) }
-            )
-
-            GeneralOptionsCard(
-                uiState = uiState,
+                onCrfChanged = { viewModel.onCrfChanged(it) },
+                onAudioTranscodeOptionSelected = { viewModel.onAudioTranscodeOptionSelected(it) },
+                onSubtitleTranscodeOptionSelected = { viewModel.onSubtitleTranscodeOptionSelected(it) },
                 onMaxParallelJobsChanged = { viewModel.onMaxParallelJobsChanged(it) }
             )
         }
@@ -191,7 +184,63 @@ private fun SharedDirectoriesContent(
 }
 
 @Composable
-private fun VideoOptionsCard(
+private fun TranscodingOptionsCard(
+    uiState: SettingsUiState,
+    onVideoTranscodeOptionSelected: (VideoTranscodeOption) -> Unit,
+    onResolutionSelected: (TranscodeResolution) -> Unit,
+    onVideoTranscodePresetSelected: (VideoTranscodePreset) -> Unit,
+    onBitrateChanged: (Int) -> Unit,
+    onCrfChanged: (Int) -> Unit,
+    onAudioTranscodeOptionSelected: (AudioTranscodeOption) -> Unit,
+    onSubtitleTranscodeOptionSelected: (SubtitleTranscodeOption) -> Unit,
+    onMaxParallelJobsChanged: (Int) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text(
+                text = "Transcoding Options",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            VideoOptionsSection(
+                uiState = uiState,
+                onVideoTranscodeOptionSelected = onVideoTranscodeOptionSelected,
+                onResolutionSelected = onResolutionSelected,
+                onVideoTranscodePresetSelected = onVideoTranscodePresetSelected,
+                onBitrateChanged = onBitrateChanged,
+                onCrfChanged = onCrfChanged
+            )
+
+            HorizontalDivider()
+
+            AudioOptionsSection(
+                uiState = uiState,
+                onAudioTranscodeOptionSelected = onAudioTranscodeOptionSelected
+            )
+
+            HorizontalDivider()
+
+            SubtitleOptionsSection(
+                uiState = uiState,
+                onSubtitleTranscodeOptionSelected = onSubtitleTranscodeOptionSelected
+            )
+
+            HorizontalDivider()
+
+            GeneralOptionsSection(
+                uiState = uiState,
+                onMaxParallelJobsChanged = onMaxParallelJobsChanged
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun VideoOptionsSection(
     uiState: SettingsUiState,
     onVideoTranscodeOptionSelected: (VideoTranscodeOption) -> Unit,
     onResolutionSelected: (TranscodeResolution) -> Unit,
@@ -199,117 +248,120 @@ private fun VideoOptionsCard(
     onBitrateChanged: (Int) -> Unit,
     onCrfChanged: (Int) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Video Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        val currentOption = uiState.transcodeSettings.option
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Video Options",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            VideoEncoderDropdown(
-                uiState = uiState,
-                onVideoTranscodeOptionSelected = onVideoTranscodeOptionSelected
-            )
-
-            val currentOption = uiState.transcodeSettings.option
-            if (currentOption != VideoTranscodeOption.KEEP) {
-                ResolutionDropdown(
+            Box(modifier = Modifier.widthIn(min = 200.dp)) {
+                VideoEncoderDropdown(
                     uiState = uiState,
-                    onResolutionSelected = onResolutionSelected
+                    onVideoTranscodeOptionSelected = onVideoTranscodeOptionSelected
                 )
+            }
+
+            if (currentOption != VideoTranscodeOption.KEEP) {
+                Box(modifier = Modifier.widthIn(min = 180.dp)) {
+                    ResolutionDropdown(
+                        uiState = uiState,
+                        onResolutionSelected = onResolutionSelected
+                    )
+                }
 
                 if (!currentOption.isHardware && currentOption.supportsPresets) {
-                    VideoPresetDropdown(
-                        uiState = uiState,
-                        onVideoTranscodePresetSelected = onVideoTranscodePresetSelected
-                    )
+                    Box(modifier = Modifier.widthIn(min = 180.dp)) {
+                        VideoPresetDropdown(
+                            uiState = uiState,
+                            onVideoTranscodePresetSelected = onVideoTranscodePresetSelected
+                        )
+                    }
                 }
+            }
+        }
 
-                if (currentOption.isHardware) {
-                    BitrateSlider(
-                        bitrateMb = uiState.transcodeSettings.bitrateMb,
-                        onBitrateChanged = onBitrateChanged
-                    )
-                } else {
-                    CrfSlider(
-                        crf = uiState.transcodeSettings.crf,
-                        onCrfChanged = onCrfChanged
-                    )
-                }
+        if (currentOption != VideoTranscodeOption.KEEP) {
+            if (currentOption.isHardware) {
+                BitrateSlider(
+                    bitrateMb = uiState.transcodeSettings.bitrateMb,
+                    onBitrateChanged = onBitrateChanged
+                )
+            } else {
+                CrfSlider(
+                    crf = uiState.transcodeSettings.crf,
+                    onCrfChanged = onCrfChanged
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AudioOptionsCard(
+private fun AudioOptionsSection(
     uiState: SettingsUiState,
     onAudioTranscodeOptionSelected: (AudioTranscodeOption) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "Audio Options",
-                style = MaterialTheme.typography.titleMedium
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Audio Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-            AudioEncoderDropdown(
-                uiState = uiState,
-                onAudioTranscodeOptionSelected = onAudioTranscodeOptionSelected
-            )
-        }
+        AudioEncoderDropdown(
+            uiState = uiState,
+            onAudioTranscodeOptionSelected = onAudioTranscodeOptionSelected
+        )
     }
 }
 
 @Composable
-private fun SubtitleOptionsCard(
+private fun SubtitleOptionsSection(
     uiState: SettingsUiState,
     onSubtitleTranscodeOptionSelected: (SubtitleTranscodeOption) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "Subtitle Options",
-                style = MaterialTheme.typography.titleMedium
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Subtitle Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-            SubtitleEncoderDropdown(
-                uiState = uiState,
-                onSubtitleTranscodeOptionSelected = onSubtitleTranscodeOptionSelected
-            )
-        }
+        SubtitleEncoderDropdown(
+            uiState = uiState,
+            onSubtitleTranscodeOptionSelected = onSubtitleTranscodeOptionSelected
+        )
     }
 }
 
 @Composable
-private fun GeneralOptionsCard(
+private fun GeneralOptionsSection(
     uiState: SettingsUiState,
     onMaxParallelJobsChanged: (Int) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "General Options",
-                style = MaterialTheme.typography.titleMedium
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "General Configuration",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-            MaxJobsSlider(
-                maxParallelJobs = uiState.transcodeSettings.maxParallelJobs,
-                onMaxParallelJobsChanged = onMaxParallelJobsChanged
-            )
-        }
+        MaxJobsSlider(
+            maxParallelJobs = uiState.transcodeSettings.maxParallelJobs,
+            onMaxParallelJobsChanged = onMaxParallelJobsChanged
+        )
     }
 }
 
@@ -327,7 +379,7 @@ private fun VideoEncoderDropdown(
         val currentOption = uiState.transcodeSettings.option
         val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
         val selectedLabel = if (currentOption == VideoTranscodeOption.KEEP) {
-            "Keep"
+            "Keep original"
         } else {
             "${currentOption.codecName} (${if (currentOption.isHardware) "HW" else "SW"})${if (is10BitSupported) " • 10-bit supported" else ""}"
         }
@@ -454,7 +506,7 @@ private fun AudioEncoderDropdown(
     ) {
         val current = uiState.transcodeSettings.audioOption
         val selectedText = if (current == AudioTranscodeOption.KEEP) {
-            "Keep"
+            "Keep original"
         } else {
             "${current.codecName} (${if (current.isHardware) "HW" else "SW"})"
         }
@@ -588,7 +640,7 @@ private fun VideoEncoderOptionItem(
 ) {
     if (option == VideoTranscodeOption.KEEP) {
         Text(
-            text = "Keep",
+            text = "Keep original",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
         )
@@ -649,7 +701,7 @@ private fun AudioEncoderOptionItem(
 ) {
     if (option == AudioTranscodeOption.KEEP) {
         Text(
-            text = "Keep",
+            text = "Keep original",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
         )

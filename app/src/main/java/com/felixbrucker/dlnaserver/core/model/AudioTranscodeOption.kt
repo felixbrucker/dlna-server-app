@@ -11,7 +11,7 @@ enum class AudioTranscodeOption(
 ) {
     KEEP(
         id = "KEEP",
-        codecName = "Keep",
+        codecName = "Keep original",
         mimeType = "",
         ffmpegEncoder = "copy",
         isHardware = false

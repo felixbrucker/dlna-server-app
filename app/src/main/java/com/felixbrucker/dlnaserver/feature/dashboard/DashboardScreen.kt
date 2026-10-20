@@ -111,7 +111,7 @@ fun DashboardScreen(
             TranscodeQueueBottomSheetContent(
                 jobs = uiState.activeTranscodeJobs,
                 onCancelClick = { viewModel.cancelTranscodeJob(it) },
-                onRetryClick = { viewModel.retryTranscodeJob(it) }
+                onRetryClick = { viewModel.retryJob(it) }
             )
         }
     }
