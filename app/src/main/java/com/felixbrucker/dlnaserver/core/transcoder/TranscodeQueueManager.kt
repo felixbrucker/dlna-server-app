@@ -258,7 +258,7 @@ class TranscodeQueueManager @Inject constructor(
             add("-keyint_min")
             add("60")
 
-            if (!hasHw && (option == TranscodeOption.X264_SW || option == TranscodeOption.X265_SW || option == TranscodeOption.AV1_SW)) {
+            if (!hasHw && option.supportsPresets) {
                 add("-preset")
                 add("ultrafast")
             }

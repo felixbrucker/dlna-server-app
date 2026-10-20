@@ -2,6 +2,8 @@ package com.felixbrucker.dlnaserver.feature.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -140,79 +142,11 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    // Encoder selection
-                    var codecExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = codecExpanded,
-                        onExpandedChange = { codecExpanded = !codecExpanded }
-                    ) {
-                        val currentOption = uiState.transcodeSettings.option
-                        val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
-                        val selectedLabel = "${currentOption.codecName} (${if (currentOption.isHardware) "HW" else "SW"})${if (is10BitSupported) " • 10-bit supported" else ""}"
-
-                        OutlinedTextField(
-                            value = selectedLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Encoder") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = codecExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        )
-                        ExposedDropdownMenu(
-                            expanded = codecExpanded,
-                            onDismissRequest = { codecExpanded = false }
-                        ) {
-                            uiState.supportedOptions.forEach { option ->
-                                val supports10Bit = uiState.tenBitSupportMap[option] ?: true
-                                DropdownMenuItem(
-                                    text = {
-                                        EncoderOptionItem(
-                                            option = option,
-                                            supports10Bit = supports10Bit
-                                        )
-                                    },
-                                    onClick = {
-                                        viewModel.onTranscodeOptionSelected(option)
-                                        codecExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // Resolution selection
-                    var resolutionExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = resolutionExpanded,
-                        onExpandedChange = { resolutionExpanded = !resolutionExpanded }
-                    ) {
-                        OutlinedTextField(
-                            value = uiState.transcodeSettings.resolution.label,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Resolution") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = resolutionExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        )
-                        ExposedDropdownMenu(
-                            expanded = resolutionExpanded,
-                            onDismissRequest = { resolutionExpanded = false }
-                        ) {
-                            TranscodeResolution.entries.forEach { res ->
-                                DropdownMenuItem(
-                                    text = { Text(res.label) },
-                                    onClick = {
-                                        viewModel.onResolutionSelected(res)
-                                        resolutionExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    EncoderAndResolutionRow(
+                        uiState = uiState,
+                        onTranscodeOptionSelected = { viewModel.onTranscodeOptionSelected(it) },
+                        onResolutionSelected = { viewModel.onResolutionSelected(it) }
+                    )
 
                     // HW Bitrate slider
                     Column {
@@ -262,6 +196,136 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun EncoderAndResolutionRow(
+    uiState: SettingsUiState,
+    onTranscodeOptionSelected: (TranscodeOption) -> Unit,
+    onResolutionSelected: (TranscodeResolution) -> Unit
+) {
+    BoxWithConstraints {
+        val isWide = maxWidth >= 480.dp
+        if (isWide) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    EncoderDropdown(
+                        uiState = uiState,
+                        onTranscodeOptionSelected = onTranscodeOptionSelected
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    ResolutionDropdown(
+                        uiState = uiState,
+                        onResolutionSelected = onResolutionSelected
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                EncoderDropdown(
+                    uiState = uiState,
+                    onTranscodeOptionSelected = onTranscodeOptionSelected
+                )
+                ResolutionDropdown(
+                    uiState = uiState,
+                    onResolutionSelected = onResolutionSelected
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EncoderDropdown(
+    uiState: SettingsUiState,
+    onTranscodeOptionSelected: (TranscodeOption) -> Unit
+) {
+    var codecExpanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = codecExpanded,
+        onExpandedChange = { codecExpanded = !codecExpanded }
+    ) {
+        val currentOption = uiState.transcodeSettings.option
+        val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
+        val selectedLabel = "${currentOption.codecName} (${if (currentOption.isHardware) "HW" else "SW"})${if (is10BitSupported) " • 10-bit supported" else ""}"
+
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Encoder") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = codecExpanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = codecExpanded,
+            onDismissRequest = { codecExpanded = false }
+        ) {
+            uiState.supportedOptions.forEach { option ->
+                val supports10Bit = uiState.tenBitSupportMap[option] ?: true
+                DropdownMenuItem(
+                    text = {
+                        EncoderOptionItem(
+                            option = option,
+                            supports10Bit = supports10Bit
+                        )
+                    },
+                    onClick = {
+                        onTranscodeOptionSelected(option)
+                        codecExpanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ResolutionDropdown(
+    uiState: SettingsUiState,
+    onResolutionSelected: (TranscodeResolution) -> Unit
+) {
+    var resolutionExpanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = resolutionExpanded,
+        onExpandedChange = { resolutionExpanded = !resolutionExpanded }
+    ) {
+        OutlinedTextField(
+            value = uiState.transcodeSettings.resolution.label,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Resolution") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = resolutionExpanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = resolutionExpanded,
+            onDismissRequest = { resolutionExpanded = false }
+        ) {
+            TranscodeResolution.entries.forEach { res ->
+                DropdownMenuItem(
+                    text = { Text(res.label) },
+                    onClick = {
+                        onResolutionSelected(res)
+                        resolutionExpanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EncoderOptionItem(
     option: TranscodeOption,
     supports10Bit: Boolean
@@ -295,6 +359,19 @@ private fun EncoderOptionItem(
                     text = "10-bit supported",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        if (option == TranscodeOption.X265_HW) {
+            Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color = MaterialTheme.colorScheme.errorContainer
+            ) {
+                Text(
+                    text = "seeking might be broken",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }

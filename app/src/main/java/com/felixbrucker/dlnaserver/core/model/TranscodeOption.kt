@@ -76,9 +76,11 @@ enum class TranscodeOption(
 
     val is10BitSupported: Boolean = !isHardware
 
+    val supportsPresets: Boolean get() = this == X264_SW || this == X265_SW || this == AV1_SW
+
     companion object {
         fun getDefaultOption(): TranscodeOption {
-            val hwOrder = listOf(X265_HW, X264_HW, AV1_HW, VP9_HW)
+            val hwOrder = listOf(X264_HW, X265_HW, AV1_HW, VP9_HW)
             return hwOrder.firstOrNull { it.isHardwareSupported } ?: X265_SW
         }
 
