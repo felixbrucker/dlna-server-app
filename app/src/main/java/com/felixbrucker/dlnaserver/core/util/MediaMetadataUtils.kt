@@ -180,14 +180,6 @@ object MediaMetadataUtils {
         }
     }
 
-    fun getVideoCodecName(file: File): String? = extractTrackCodecs(file).videoCodec
-
-    fun getAudioCodecName(file: File): String? = extractTrackCodecs(file).audioCodec
-
-    fun getSubtitleCodecName(file: File): String? = extractTrackCodecs(file).subtitleCodec
-
-    fun is10Bit(file: File): Boolean = extractTrackCodecs(file).is10Bit
-
     private fun formatDuration(durationMs: Long): String {
         val secondsTotal = durationMs / 1000
         val hours = secondsTotal / 3600

@@ -248,7 +248,7 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = job.outputFile
         val option = settings.option
 
-        val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
+        val isSource10Bit = MediaMetadataUtils.extractTrackCodecs(inputFile).is10Bit
         val hasHw = option.isHardware
         val is10BitEncoding = isSource10Bit && option.is10BitSupported
 
