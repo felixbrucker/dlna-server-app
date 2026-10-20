@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.content.Context
 import android.os.PowerManager
 import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -33,6 +35,7 @@ import java.io.File
 class TranscodeQueueManagerTest {
 
     private val testDispatcher = StandardTestDispatcher()
+    private lateinit var contextMock: Context
     private lateinit var powerManagerMock: PowerManager
     private lateinit var wakeLockMock: PowerManager.WakeLock
     private lateinit var appSettingsRepositoryMock: AppSettingsRepository
@@ -43,6 +46,7 @@ class TranscodeQueueManagerTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        contextMock = mockk(relaxed = true)
         powerManagerMock = mockk(relaxed = true)
         wakeLockMock = mockk(relaxed = true)
         appSettingsRepositoryMock = mockk(relaxed = true)
@@ -83,6 +87,7 @@ class TranscodeQueueManagerTest {
     @Test
     fun testWakeLockAcquiredAndReleasedOnJobExecution() = runTest {
         val manager = TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
@@ -123,6 +128,7 @@ class TranscodeQueueManagerTest {
         dbJobsFlow.value = listOf(runningEntity)
 
         TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
@@ -158,18 +164,47 @@ class TranscodeQueueManagerTest {
         )
         dbJobsFlow.value = listOf(entity)
         val manager = TranscodeQueueManager(
+            contextMock,
             powerManagerMock,
             appSettingsRepositoryMock,
             transcodeServiceLauncherMock,
             transcodeJobDaoMock
         )
 
-        testDispatcher.scheduler.advanceUntilIdle()
-        val job = manager.jobs.value.first()
+        val jobList = manager.jobs.first { it.isNotEmpty() }
+        val job = jobList.first()
 
         assertEquals("job-2", job.id)
         assertEquals(TranscodeJobStatus.FAILED, job.status)
         assertEquals("Error occurred", job.errorMessage)
         assertEquals(0f, job.progress)
+    }
+
+    @Test
+    fun testJobsFlowIncludesMetadataChanges() = runTest {
+        val entity = TranscodeJobEntity(
+            id = "job-3",
+            inputFilePath = "/tmp/input3.mp4",
+            outputFilePath = "/tmp/transcoded_input3.mp4",
+            status = TranscodeJobStatus.FAILED,
+            bitDepthChange = "10 bit → 8 bit",
+            resolutionChange = "2592x1080 → 1920x800",
+            codecChange = "x264 → x265"
+        )
+        dbJobsFlow.value = listOf(entity)
+        val manager = TranscodeQueueManager(
+            contextMock,
+            powerManagerMock,
+            appSettingsRepositoryMock,
+            transcodeServiceLauncherMock,
+            transcodeJobDaoMock
+        )
+
+        val jobList = manager.jobs.first { it.isNotEmpty() }
+        val job = jobList.first()
+
+        assertEquals("10 bit → 8 bit", job.bitDepthChange)
+        assertEquals("2592x1080 → 1920x800", job.resolutionChange)
+        assertEquals("x264 → x265", job.codecChange)
     }
 }

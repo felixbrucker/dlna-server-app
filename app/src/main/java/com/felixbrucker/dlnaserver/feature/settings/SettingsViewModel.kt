@@ -8,7 +8,6 @@ import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
-import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +19,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val transcodeSettings: TranscodeSettings = TranscodeSettings(),
     val sharedDirectories: List<SharedDirectory> = emptyList(),
-    val hardwareCodecSupportMap: Map<TranscodeOption, Boolean> = emptyMap()
+    val supportedOptions: List<TranscodeOption> = emptyList(),
+    val tenBitSupportMap: Map<TranscodeOption, Boolean> = emptyMap()
 )
 
 @HiltViewModel
@@ -29,10 +29,12 @@ class SettingsViewModel @Inject constructor(
     private val sharedDirectoryRepository: SharedDirectoryRepository
 ) : ViewModel() {
 
-    private val hardwareSupportMap: Map<TranscodeOption, Boolean> by lazy {
-        TranscodeOption.entries.associateWith { option ->
-            HardwareCodecUtils.isEncoderSupported(option.mimeType)
-        }
+    private val supportedOptionsList: List<TranscodeOption> by lazy {
+        TranscodeOption.entries.filter { it.isHardwareSupported }
+    }
+
+    private val tenBitSupportMapLazy: Map<TranscodeOption, Boolean> by lazy {
+        TranscodeOption.entries.associateWith { it.is10BitSupported }
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -42,13 +44,15 @@ class SettingsViewModel @Inject constructor(
         SettingsUiState(
             transcodeSettings = settings,
             sharedDirectories = directories,
-            hardwareCodecSupportMap = hardwareSupportMap
+            supportedOptions = supportedOptionsList,
+            tenBitSupportMap = tenBitSupportMapLazy
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsUiState(
-            hardwareCodecSupportMap = hardwareSupportMap
+            supportedOptions = supportedOptionsList,
+            tenBitSupportMap = tenBitSupportMapLazy
         )
     )
 

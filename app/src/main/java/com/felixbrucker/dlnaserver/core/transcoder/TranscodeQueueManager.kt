@@ -1,15 +1,20 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.PowerManager
 import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.Level
 import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
-import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
+import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
+import com.felixbrucker.dlnaserver.core.util.notifySystemOfNewFile
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,9 +35,11 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import kotlin.math.round
 
 @Singleton
 class TranscodeQueueManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     powerManager: PowerManager,
     private val appSettingsRepository: AppSettingsRepository,
     private val transcodeServiceLauncher: TranscodeServiceLauncher,
@@ -57,7 +64,10 @@ class TranscodeQueueManager @Inject constructor(
                 eta = progress?.eta ?: "--:--",
                 etaSeconds = progress?.etaSeconds ?: 0L,
                 errorMessage = entity.errorMessage,
-                totalDurationMs = entity.totalDurationMs
+                totalDurationMs = entity.totalDurationMs,
+                bitDepthChange = entity.bitDepthChange,
+                resolutionChange = entity.resolutionChange,
+                codecChange = entity.codecChange
             )
         }
     }.stateIn(
@@ -115,15 +125,49 @@ class TranscodeQueueManager @Inject constructor(
         val durationMs = getMediaDuration(inputFile)
         val jobId = UUID.randomUUID().toString()
 
-        val entity = TranscodeJobEntity(
-            id = jobId,
-            inputFilePath = inputFile.absolutePath,
-            outputFilePath = outputFile.absolutePath,
-            status = TranscodeJobStatus.QUEUED,
-            totalDurationMs = durationMs
-        )
-
         scope.launch {
+            val settings = appSettingsRepository.transcodeSettings.first()
+            val option = settings.option
+
+            val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
+            val isTarget10Bit = isSource10Bit && option.is10BitSupported
+
+            val bitDepthChange = if (isSource10Bit && !isTarget10Bit) {
+                "10 bit → 8 bit"
+            } else null
+
+            val sourceDims = MediaMetadataUtils.getVideoDimensions(inputFile)
+            val resolutionChange = if (sourceDims != null) {
+                val (srcW, srcH) = sourceDims
+                val targetW = when (settings.resolution) {
+                    TranscodeResolution.RES_4K -> 3840
+                    TranscodeResolution.RES_1080P -> 1920
+                    TranscodeResolution.RES_720P -> 1280
+                    TranscodeResolution.KEEP -> srcW
+                }
+                if (targetW < srcW) {
+                    val calcH = round((srcH.toDouble() * targetW.toDouble() / srcW.toDouble()) / 2.0).toInt() * 2
+                    "${srcW}x${srcH} → ${targetW}x${calcH}"
+                } else null
+            } else null
+
+            val sourceCodec = MediaMetadataUtils.getVideoCodecName(inputFile)
+            val targetCodec = option.codecName
+            val codecChange = if (!sourceCodec.isNullOrBlank() && !sourceCodec.equals(targetCodec, ignoreCase = true)) {
+                "$sourceCodec → $targetCodec"
+            } else null
+
+            val entity = TranscodeJobEntity(
+                id = jobId,
+                inputFilePath = inputFile.absolutePath,
+                outputFilePath = outputFile.absolutePath,
+                status = TranscodeJobStatus.QUEUED,
+                totalDurationMs = durationMs,
+                bitDepthChange = bitDepthChange,
+                resolutionChange = resolutionChange,
+                codecChange = codecChange
+            )
+
             transcodeJobDao.insertJob(entity)
             transcodeServiceLauncher.startService()
             processQueue()
@@ -184,19 +228,10 @@ class TranscodeQueueManager @Inject constructor(
         val option = settings.option
 
         val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
-        val hasHw = HardwareCodecUtils.isEncoderSupported(option.mimeType)
-        val encoderSupports10Bit = if (hasHw) {
-            HardwareCodecUtils.has10BitEncoderSupport(option)
-        } else {
-            true
-        }
-        val is10BitEncoding = isSource10Bit && encoderSupports10Bit
+        val hasHw = option.isHardware
+        val is10BitEncoding = isSource10Bit && option.is10BitSupported
 
-        val videoEncoder = if (hasHw) {
-            option.ffmpegEncoderHw
-        } else {
-            option.ffmpegEncoderSw
-        }
+        val videoEncoder = option.ffmpegEncoder
 
         val argumentsList = mutableListOf<String>().apply {
             add("-hide_banner")
@@ -218,14 +253,19 @@ class TranscodeQueueManager @Inject constructor(
 
             add("-c:v")
             add(videoEncoder)
+            add("-g")
+            add("250")
+            add("-keyint_min")
+            add("60")
+
+            if (!hasHw && option.supportsPresets) {
+                add("-preset")
+                add("ultrafast")
+            }
 
             if (is10BitEncoding) {
                 add("-pix_fmt")
-                if (hasHw) {
-                    add("p010le")
-                } else {
-                    add("yuv420p10le")
-                }
+                add("yuv420p10le")
             }
 
             if (hasHw) {
@@ -284,13 +324,20 @@ class TranscodeQueueManager @Inject constructor(
             }
 
             if (session.returnCode.isValueSuccess) {
+                outputFile.notifySystemOfNewFile(context)
                 transcodeJobDao.deleteJobById(job.id)
                 _progressMap.value = _progressMap.value - job.id
             } else {
+                val errorLogs = session.allLogs?.filter { log -> log.level.value <= Level.AV_LOG_ERROR.value } ?: emptyList()
+                val errorMsg = if (errorLogs.isNotEmpty()) {
+                    "FFmpeg exit code: ${session.returnCode}. Logs: ${errorLogs.joinToString("") { it.message }}"
+                } else {
+                    "FFmpeg exit code: ${session.returnCode}"
+                }
                 transcodeJobDao.updateJobStatus(
                     job.id,
                     TranscodeJobStatus.FAILED,
-                    errorMessage = "FFmpeg exit code: ${session.returnCode}"
+                    errorMessage = errorMsg
                 )
                 if (outputFile.exists()) outputFile.delete()
             }

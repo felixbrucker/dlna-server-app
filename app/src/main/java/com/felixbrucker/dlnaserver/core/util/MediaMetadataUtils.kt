@@ -1,12 +1,11 @@
 package com.felixbrucker.dlnaserver.core.util
 
-import android.media.MediaMetadataRetriever
-import android.os.Build
-import java.io.File
-
 import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaMetadataRetriever
+import android.os.Build
+import java.io.File
 
 data class ExtractedMediaMetadata(
     val durationFormatted: String? = null,
@@ -65,6 +64,49 @@ object MediaMetadataUtils {
                 retriever.release()
             } catch (_: Exception) {
             }
+        }
+    }
+
+    fun getVideoDimensions(file: File): Pair<Int, Int>? {
+        if (!file.exists() || !file.isFile) return null
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
+            val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
+            if (w != null && h != null && w > 0 && h > 0) Pair(w, h) else null
+        } catch (_: Throwable) {
+            null
+        } finally {
+            try { retriever.release() } catch (_: Throwable) {}
+        }
+    }
+
+    fun getVideoCodecName(file: File): String? {
+        if (!file.exists() || !file.isFile) return null
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("video/")) {
+                    return when (mime.lowercase()) {
+                        "video/avc" -> "x264"
+                        "video/hevc" -> "x265"
+                        "video/x-vnd.on2.vp9" -> "VP9"
+                        "video/av01" -> "AV1"
+                        "video/mp4v-es" -> "MPEG4"
+                        "video/3gpp" -> "H263"
+                        else -> mime.removePrefix("video/").uppercase()
+                    }
+                }
+            }
+            null
+        } catch (_: Throwable) {
+            null
+        } finally {
+            try { extractor.release() } catch (_: Throwable) {}
         }
     }
 

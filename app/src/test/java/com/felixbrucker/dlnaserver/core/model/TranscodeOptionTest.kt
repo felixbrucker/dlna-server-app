@@ -1,43 +1,57 @@
 package com.felixbrucker.dlnaserver.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TranscodeOptionTest {
 
     @Test
     fun testFromIdReturnsCorrectOption() {
-        val id = "X264"
+        val id = "X264_HW"
 
         val option = TranscodeOption.fromId(id)
 
-        assertEquals(TranscodeOption.X264, option)
+        assertEquals(TranscodeOption.X264_HW, option)
     }
 
     @Test
-    fun testFromIdUnknownReturnsX265Default() {
+    fun testFromIdUnknownReturnsDefaultOption() {
         val id = "UNKNOWN_ID"
 
         val option = TranscodeOption.fromId(id)
 
-        assertEquals(TranscodeOption.X265, option)
+        assertEquals(TranscodeOption.getDefaultOption(), option)
     }
 
     @Test
-    fun testDisplayLabelWithHwSupportReturnsHwLabel() {
-        val option = TranscodeOption.X264
+    fun testGetDefaultOptionReturnsOption() {
+        val defaultOption = TranscodeOption.getDefaultOption()
 
-        val label = option.getDisplayLabel(hasHwSupport = true)
-
-        assertEquals("x264 (HW)", label)
+        assertTrue(defaultOption in TranscodeOption.entries)
     }
 
     @Test
-    fun testDisplayLabelWithoutHwSupportReturnsSwLabel() {
-        val option = TranscodeOption.X265
+    fun testIsHardwareProperty() {
+        val hwOption = TranscodeOption.X265_HW
+        val swOption = TranscodeOption.X265_SW
 
-        val label = option.getDisplayLabel(hasHwSupport = false)
+        val isHw = hwOption.isHardware
+        val isSwHw = swOption.isHardware
 
-        assertEquals("x265 (SW)", label)
+        assertTrue(isHw)
+        assertFalse(isSwHw)
+    }
+
+    @Test
+    fun testSoftwareOptionsAlwaysSupported() {
+        val swOption = TranscodeOption.X265_SW
+
+        val hwSupported = swOption.isHardwareSupported
+        val tenBitSupported = swOption.is10BitSupported
+
+        assertTrue(hwSupported)
+        assertTrue(tenBitSupported)
     }
 }

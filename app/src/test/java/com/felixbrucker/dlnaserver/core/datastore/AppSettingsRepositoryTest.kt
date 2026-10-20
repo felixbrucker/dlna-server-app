@@ -42,21 +42,21 @@ class AppSettingsRepositoryTest {
     }
 
     @Test
-    fun testDefaultSelectedTranscodeOptionIsX265() = runTest {
+    fun testDefaultSelectedTranscodeOptionIsX265Sw() = runTest {
         val flow = repository.selectedTranscodeOption
 
         val result = flow.first()
 
-        assertEquals(TranscodeOption.X265, result)
+        assertEquals(TranscodeOption.X265_SW, result)
     }
 
     @Test
     fun testSetTranscodeOptionUpdatesPreference() = runTest {
-        val option = TranscodeOption.X264
+        val option = TranscodeOption.X264_HW
 
         repository.setTranscodeOption(option)
 
         val result = repository.selectedTranscodeOption.first()
-        assertEquals(TranscodeOption.X264, result)
+        assertEquals(TranscodeOption.X264_HW, result)
     }
 }
