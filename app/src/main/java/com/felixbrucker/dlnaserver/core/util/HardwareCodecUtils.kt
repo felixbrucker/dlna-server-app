@@ -24,11 +24,6 @@ fun Int.is10BitProfileFor(mimeType: String?): Boolean {
 }
 
 object HardwareCodecUtils {
-
-    fun isEncoderSupported(mimeType: String?): Boolean {
-        return hasHardwareEncoderSupport(mimeType)
-    }
-
     fun hasHardwareEncoderSupport(mimeType: String?): Boolean {
         return !mimeType.isNullOrBlank() && try {
             val codecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)

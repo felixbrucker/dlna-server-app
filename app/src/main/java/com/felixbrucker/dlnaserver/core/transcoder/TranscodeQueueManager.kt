@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.transcoder
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.PowerManager
@@ -9,7 +10,6 @@ import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.core.util.notifySystemOfNewFile
@@ -183,7 +183,7 @@ class TranscodeQueueManager @Inject constructor(
                 try { targetJob.outputFile.delete() } catch (_: Throwable) {}
             }
             transcodeJobDao.deleteJobById(jobId)
-            _progressMap.value = _progressMap.value - jobId
+            _progressMap.value -= jobId
             processQueue()
         }
     }
@@ -191,7 +191,7 @@ class TranscodeQueueManager @Inject constructor(
     fun retryJob(jobId: String) {
         scope.launch {
             transcodeJobDao.updateJobStatus(jobId, TranscodeJobStatus.QUEUED, errorMessage = null)
-            _progressMap.value = _progressMap.value + (jobId to TranscodeJobProgress(jobId))
+            _progressMap.value += (jobId to TranscodeJobProgress(jobId))
             transcodeServiceLauncher.startService()
             processQueue()
         }
@@ -221,6 +221,7 @@ class TranscodeQueueManager @Inject constructor(
         }
     }
 
+    @SuppressLint("WakelockTimeout")
     private suspend fun executeTranscodeJob(job: TranscodeJobEntity, settings: TranscodeSettings) {
         wakeLock.acquire()
         val inputFile = job.inputFile
@@ -326,7 +327,7 @@ class TranscodeQueueManager @Inject constructor(
             if (session.returnCode.isValueSuccess) {
                 outputFile.notifySystemOfNewFile(context)
                 transcodeJobDao.deleteJobById(job.id)
-                _progressMap.value = _progressMap.value - job.id
+                _progressMap.value -= job.id
             } else {
                 val errorLogs = session.allLogs?.filter { log -> log.level.value <= Level.AV_LOG_ERROR.value } ?: emptyList()
                 val errorMsg = if (errorLogs.isNotEmpty()) {
@@ -355,15 +356,15 @@ class TranscodeQueueManager @Inject constructor(
     }
 
     private fun updateJobProgress(jobId: String, progress: Float, speed: String, eta: String, etaSeconds: Long) {
-        _progressMap.value = _progressMap.value + (
-            jobId to TranscodeJobProgress(
-                jobId = jobId,
-                progress = progress,
-                speed = speed,
-                eta = eta,
-                etaSeconds = etaSeconds
-            )
-        )
+        _progressMap.value += (
+                    jobId to TranscodeJobProgress(
+                        jobId = jobId,
+                        progress = progress,
+                        speed = speed,
+                        eta = eta,
+                        etaSeconds = etaSeconds
+                    )
+                )
     }
 
     private fun getMediaDuration(file: File): Long {

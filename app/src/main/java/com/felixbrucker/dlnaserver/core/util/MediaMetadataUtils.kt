@@ -1,6 +1,5 @@
 package com.felixbrucker.dlnaserver.core.util
 
-import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever

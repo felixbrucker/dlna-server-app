@@ -505,7 +505,6 @@ private fun TranscodeJobRow(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TranscodeJobBadges(
     resolutionChange: String?,
