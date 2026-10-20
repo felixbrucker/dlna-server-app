@@ -1,6 +1,7 @@
 package com.felixbrucker.dlnaserver.core.util
 
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
@@ -25,8 +26,17 @@ class HardwareCodecUtilsTest {
     }
 
     @Test
-    fun testHasHardwareEncoderSupportForOptionReturnsBoolean() {
-        val option = TranscodeOption.X265_HW
+    fun testHasHardwareEncoderSupportForVideoOptionReturnsBoolean() {
+        val option = VideoTranscodeOption.X265_HW
+
+        val result = HardwareCodecUtils.hasHardwareEncoderSupport(option)
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun testHasHardwareEncoderSupportForAudioOptionReturnsBoolean() {
+        val option = AudioTranscodeOption.AAC_HW
 
         val result = HardwareCodecUtils.hasHardwareEncoderSupport(option)
 
@@ -52,8 +62,8 @@ class HardwareCodecUtilsTest {
     }
 
     @Test
-    fun testHas10BitEncoderSupportForOptionReturnsBoolean() {
-        val option = TranscodeOption.X265_HW
+    fun testHas10BitEncoderSupportForVideoOptionReturnsBoolean() {
+        val option = VideoTranscodeOption.X265_HW
 
         val result = HardwareCodecUtils.has10BitEncoderSupport(option)
 

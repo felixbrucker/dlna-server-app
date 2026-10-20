@@ -3,7 +3,8 @@ package com.felixbrucker.dlnaserver.core.util
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.os.Build
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
 
 fun Int.is10BitProfileFor(mimeType: String?): Boolean {
     if (mimeType.isNullOrBlank()) return false
@@ -37,13 +38,14 @@ object HardwareCodecUtils {
         }
     }
 
-    fun hasHardwareEncoderSupport(option: TranscodeOption): Boolean {
+    fun hasHardwareEncoderSupport(option: VideoTranscodeOption): Boolean {
         return hasHardwareEncoderSupport(option.mimeType)
     }
 
-    /**
-     * Note: This method is currently unused until FFmpeg provides 10-bit support for MediaCodec encoders.
-     */
+    fun hasHardwareEncoderSupport(option: AudioTranscodeOption): Boolean {
+        return hasHardwareEncoderSupport(option.mimeType)
+    }
+
     fun has10BitEncoderSupport(mimeType: String?): Boolean {
         return !mimeType.isNullOrBlank() && try {
             val codecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
@@ -57,10 +59,7 @@ object HardwareCodecUtils {
         }
     }
 
-    /**
-     * Note: This method is currently unused until FFmpeg provides 10-bit support for MediaCodec encoders.
-     */
-    fun has10BitEncoderSupport(option: TranscodeOption): Boolean {
+    fun has10BitEncoderSupport(option: VideoTranscodeOption): Boolean {
         return has10BitEncoderSupport(option.mimeType)
     }
 

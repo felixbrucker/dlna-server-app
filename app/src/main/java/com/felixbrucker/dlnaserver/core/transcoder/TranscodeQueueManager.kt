@@ -10,7 +10,10 @@ import com.felixbrucker.dlnaserver.core.database.dao.TranscodeJobDao
 import com.felixbrucker.dlnaserver.core.database.entity.TranscodeJobEntity
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
+import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.SubtitleTranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.core.util.notifySystemOfNewFile
 import com.felixbrucker.dlnaserver.feature.service.TranscodeServiceLauncher
@@ -67,7 +70,9 @@ class TranscodeQueueManager @Inject constructor(
                 totalDurationMs = entity.totalDurationMs,
                 bitDepthChange = entity.bitDepthChange,
                 resolutionChange = entity.resolutionChange,
-                codecChange = entity.codecChange
+                codecChange = entity.codecChange,
+                audioCodecChange = entity.audioCodecChange,
+                subtitleCodecChange = entity.subtitleCodecChange
             )
         }
     }.stateIn(
@@ -132,12 +137,12 @@ class TranscodeQueueManager @Inject constructor(
             val isSource10Bit = MediaMetadataUtils.is10Bit(inputFile)
             val isTarget10Bit = isSource10Bit && option.is10BitSupported
 
-            val bitDepthChange = if (isSource10Bit && !isTarget10Bit) {
+            val bitDepthChange = if (isSource10Bit && !isTarget10Bit && option != VideoTranscodeOption.KEEP) {
                 "10 bit → 8 bit"
             } else null
 
             val sourceDims = MediaMetadataUtils.getVideoDimensions(inputFile)
-            val resolutionChange = if (sourceDims != null) {
+            val resolutionChange = if (sourceDims != null && option != VideoTranscodeOption.KEEP) {
                 val (srcW, srcH) = sourceDims
                 val targetW = when (settings.resolution) {
                     TranscodeResolution.RES_4K -> 3840
@@ -153,8 +158,20 @@ class TranscodeQueueManager @Inject constructor(
 
             val sourceCodec = MediaMetadataUtils.getVideoCodecName(inputFile)
             val targetCodec = option.codecName
-            val codecChange = if (!sourceCodec.isNullOrBlank() && !sourceCodec.equals(targetCodec, ignoreCase = true)) {
+            val codecChange = if (option != VideoTranscodeOption.KEEP && !sourceCodec.isNullOrBlank() && !sourceCodec.equals(targetCodec, ignoreCase = true)) {
                 "$sourceCodec → $targetCodec"
+            } else null
+
+            val sourceAudioCodec = MediaMetadataUtils.getAudioCodecName(inputFile)
+            val targetAudioCodec = settings.audioOption.codecName
+            val audioCodecChange = if (settings.audioOption != AudioTranscodeOption.KEEP && !sourceAudioCodec.isNullOrBlank() && !sourceAudioCodec.equals(targetAudioCodec, ignoreCase = true)) {
+                "$sourceAudioCodec → $targetAudioCodec"
+            } else null
+
+            val sourceSubCodec = MediaMetadataUtils.getSubtitleCodecName(inputFile)
+            val targetSubCodec = settings.subtitleOption.codecName
+            val subtitleCodecChange = if (settings.subtitleOption != SubtitleTranscodeOption.KEEP && !sourceSubCodec.isNullOrBlank() && !sourceSubCodec.equals(targetSubCodec, ignoreCase = true)) {
+                "$sourceSubCodec → $targetSubCodec"
             } else null
 
             val entity = TranscodeJobEntity(
@@ -165,7 +182,9 @@ class TranscodeQueueManager @Inject constructor(
                 totalDurationMs = durationMs,
                 bitDepthChange = bitDepthChange,
                 resolutionChange = resolutionChange,
-                codecChange = codecChange
+                codecChange = codecChange,
+                audioCodecChange = audioCodecChange,
+                subtitleCodecChange = subtitleCodecChange
             )
 
             transcodeJobDao.insertJob(entity)
@@ -247,40 +266,45 @@ class TranscodeQueueManager @Inject constructor(
             add("-map")
             add("0:s?")
 
-            settings.resolution.scaleFilter?.let { filter ->
-                add("-vf")
-                add(filter)
-            }
-
-            add("-c:v")
-            add(videoEncoder)
-            add("-g")
-            add("250")
-            add("-keyint_min")
-            add("60")
-
-            if (!hasHw && option.supportsPresets) {
-                add("-preset")
-                add("ultrafast")
-            }
-
-            if (is10BitEncoding) {
-                add("-pix_fmt")
-                add("yuv420p10le")
-            }
-
-            if (hasHw) {
-                add("-b:v")
-                add("${settings.bitrateMb}M")
+            if (option == VideoTranscodeOption.KEEP) {
+                add("-c:v")
+                add("copy")
             } else {
-                add("-crf")
-                add(settings.crf.toString())
+                settings.resolution.scaleFilter?.let { filter ->
+                    add("-vf")
+                    add(filter)
+                }
+
+                add("-c:v")
+                add(videoEncoder)
+                add("-g")
+                add("250")
+                add("-keyint_min")
+                add("60")
+
+                if (!hasHw && option.supportsPresets) {
+                    add("-preset")
+                    add(settings.preset.getFfmpegPreset(option))
+                }
+
+                if (is10BitEncoding) {
+                    add("-pix_fmt")
+                    add("yuv420p10le")
+                }
+
+                if (hasHw) {
+                    add("-b:v")
+                    add("${settings.bitrateMb}M")
+                } else {
+                    add("-crf")
+                    add(settings.crf.toString())
+                }
             }
 
             add("-c:a")
-            add("copy")
+            add(settings.audioOption.ffmpegEncoder)
             add("-c:s")
-            add("copy")
+            add(settings.subtitleOption.ffmpegEncoder)
             add("-f")
             add("matroska")
             add("-y")

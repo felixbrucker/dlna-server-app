@@ -189,7 +189,9 @@ class TranscodeQueueManagerTest {
             status = TranscodeJobStatus.FAILED,
             bitDepthChange = "10 bit → 8 bit",
             resolutionChange = "2592x1080 → 1920x800",
-            codecChange = "x264 → x265"
+            codecChange = "x264 → x265",
+            audioCodecChange = "DTS → AAC",
+            subtitleCodecChange = "VOBSUB → SRT"
         )
         dbJobsFlow.value = listOf(entity)
         val manager = TranscodeQueueManager(
@@ -206,5 +208,7 @@ class TranscodeQueueManagerTest {
         assertEquals("10 bit → 8 bit", job.bitDepthChange)
         assertEquals("2592x1080 → 1920x800", job.resolutionChange)
         assertEquals("x264 → x265", job.codecChange)
+        assertEquals("DTS → AAC", job.audioCodecChange)
+        assertEquals("VOBSUB → SRT", job.subtitleCodecChange)
     }
 }

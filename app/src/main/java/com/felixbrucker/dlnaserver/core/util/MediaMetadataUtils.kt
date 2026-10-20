@@ -109,6 +109,62 @@ object MediaMetadataUtils {
         }
     }
 
+    fun getAudioCodecName(file: File): String? {
+        if (!file.exists() || !file.isFile) return null
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("audio/")) {
+                    return when (mime.lowercase()) {
+                        "audio/mp4a-latm" -> "AAC"
+                        "audio/ac3" -> "AC3"
+                        "audio/eac3" -> "EAC3"
+                        "audio/flac" -> "FLAC"
+                        "audio/mpeg" -> "MP3"
+                        "audio/vorbis" -> "Vorbis"
+                        "audio/opus" -> "Opus"
+                        "audio/raw" -> "PCM"
+                        else -> mime.removePrefix("audio/").uppercase()
+                    }
+                }
+            }
+            null
+        } catch (_: Throwable) {
+            null
+        } finally {
+            try { extractor.release() } catch (_: Throwable) {}
+        }
+    }
+
+    fun getSubtitleCodecName(file: File): String? {
+        if (!file.exists() || !file.isFile) return null
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("text/") || mime.startsWith("subtitle/")) {
+                    return when (mime.lowercase()) {
+                        "text/vtt" -> "WebVTT"
+                        "text/x-subrip" -> "SRT"
+                        "text/ssa" -> "ASS"
+                        "text/ass" -> "ASS"
+                        else -> mime.removePrefix("text/").removePrefix("subtitle/").uppercase()
+                    }
+                }
+            }
+            null
+        } catch (_: Throwable) {
+            null
+        } finally {
+            try { extractor.release() } catch (_: Throwable) {}
+        }
+    }
+
     fun is10Bit(file: File): Boolean {
         if (!file.exists() || !file.isFile) return false
 

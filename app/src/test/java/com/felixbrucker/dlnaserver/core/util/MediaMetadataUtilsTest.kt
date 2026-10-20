@@ -43,4 +43,22 @@ class MediaMetadataUtilsTest {
 
         assertNull(codec)
     }
+
+    @Test
+    fun testGetAudioCodecNameWithNonExistentFileReturnsNull() {
+        val nonExistentFile = File("/tmp/non_existent_video_file.mp4")
+
+        val codec = MediaMetadataUtils.getAudioCodecName(nonExistentFile)
+
+        assertNull(codec)
+    }
+
+    @Test
+    fun testGetSubtitleCodecNameWithNonExistentFileReturnsNull() {
+        val nonExistentFile = File("/tmp/non_existent_video_file.mp4")
+
+        val codec = MediaMetadataUtils.getSubtitleCodecName(nonExistentFile)
+
+        assertNull(codec)
+    }
 }

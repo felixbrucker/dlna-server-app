@@ -17,7 +17,9 @@ data class TranscodeJobEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val bitDepthChange: String? = null,
     val resolutionChange: String? = null,
-    val codecChange: String? = null
+    val codecChange: String? = null,
+    val audioCodecChange: String? = null,
+    val subtitleCodecChange: String? = null
 ) {
     val inputFile: File get() = File(inputFilePath)
     val outputFile: File get() = File(outputFilePath)

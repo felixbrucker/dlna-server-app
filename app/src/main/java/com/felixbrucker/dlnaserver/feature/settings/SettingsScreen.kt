@@ -2,8 +2,6 @@ package com.felixbrucker.dlnaserver.feature.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,8 +41,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.SubtitleTranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodePreset
 import com.felixbrucker.dlnaserver.feature.dashboard.components.DirectoryItemCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.EmptyDirectoriesCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.FolderPickerDialog
@@ -95,100 +96,148 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Shared Directories Section
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Shared Directories",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Button(onClick = { showFolderPicker = true }) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add Directory")
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
+            SharedDirectoriesSection(
+                uiState = uiState,
+                onAddDirectoryClick = { showFolderPicker = true },
+                onToggleDirectory = { viewModel.toggleSharedDirectory(it) },
+                onDeleteDirectory = { viewModel.deleteSharedDirectory(it) }
+            )
 
-                    if (uiState.sharedDirectories.isEmpty()) {
-                        EmptyDirectoriesCard()
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            uiState.sharedDirectories.forEach { directory ->
-                                DirectoryItemCard(
-                                    directory = directory,
-                                    onToggleDirectory = { viewModel.toggleSharedDirectory(it) },
-                                    onDeleteDirectory = { viewModel.deleteSharedDirectory(it) }
-                                )
-                            }
-                        }
-                    }
-                }
+            VideoOptionsCard(
+                uiState = uiState,
+                onVideoTranscodeOptionSelected = { viewModel.onVideoTranscodeOptionSelected(it) },
+                onResolutionSelected = { viewModel.onResolutionSelected(it) },
+                onVideoTranscodePresetSelected = { viewModel.onVideoTranscodePresetSelected(it) },
+                onBitrateChanged = { viewModel.onBitrateChanged(it) },
+                onCrfChanged = { viewModel.onCrfChanged(it) }
+            )
+
+            AudioOptionsCard(
+                uiState = uiState,
+                onAudioTranscodeOptionSelected = { viewModel.onAudioTranscodeOptionSelected(it) }
+            )
+
+            SubtitleOptionsCard(
+                uiState = uiState,
+                onSubtitleTranscodeOptionSelected = { viewModel.onSubtitleTranscodeOptionSelected(it) }
+            )
+
+            GeneralOptionsCard(
+                uiState = uiState,
+                onMaxParallelJobsChanged = { viewModel.onMaxParallelJobsChanged(it) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SharedDirectoriesSection(
+    uiState: SettingsUiState,
+    onAddDirectoryClick: () -> Unit,
+    onToggleDirectory: (com.felixbrucker.dlnaserver.core.model.SharedDirectory) -> Unit,
+    onDeleteDirectory: (Long) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            SharedDirectoriesHeader(onAddDirectoryClick = onAddDirectoryClick)
+            Spacer(modifier = Modifier.height(12.dp))
+            SharedDirectoriesContent(
+                directories = uiState.sharedDirectories,
+                onToggleDirectory = onToggleDirectory,
+                onDeleteDirectory = onDeleteDirectory
+            )
+        }
+    }
+}
+
+@Composable
+private fun SharedDirectoriesHeader(onAddDirectoryClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Shared Directories",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Button(onClick = onAddDirectoryClick) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Add Directory")
+        }
+    }
+}
+
+@Composable
+private fun SharedDirectoriesContent(
+    directories: List<com.felixbrucker.dlnaserver.core.model.SharedDirectory>,
+    onToggleDirectory: (com.felixbrucker.dlnaserver.core.model.SharedDirectory) -> Unit,
+    onDeleteDirectory: (Long) -> Unit
+) {
+    if (directories.isEmpty()) {
+        EmptyDirectoriesCard()
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            directories.forEach { directory ->
+                DirectoryItemCard(
+                    directory = directory,
+                    onToggleDirectory = onToggleDirectory,
+                    onDeleteDirectory = onDeleteDirectory
+                )
             }
+        }
+    }
+}
 
-            // Transcoding Configuration Section
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = "Transcoding Options",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+@Composable
+private fun VideoOptionsCard(
+    uiState: SettingsUiState,
+    onVideoTranscodeOptionSelected: (VideoTranscodeOption) -> Unit,
+    onResolutionSelected: (TranscodeResolution) -> Unit,
+    onVideoTranscodePresetSelected: (VideoTranscodePreset) -> Unit,
+    onBitrateChanged: (Int) -> Unit,
+    onCrfChanged: (Int) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Video Options",
+                style = MaterialTheme.typography.titleMedium
+            )
 
-                    EncoderAndResolutionRow(
+            VideoEncoderDropdown(
+                uiState = uiState,
+                onVideoTranscodeOptionSelected = onVideoTranscodeOptionSelected
+            )
+
+            val currentOption = uiState.transcodeSettings.option
+            if (currentOption != VideoTranscodeOption.KEEP) {
+                ResolutionDropdown(
+                    uiState = uiState,
+                    onResolutionSelected = onResolutionSelected
+                )
+
+                if (!currentOption.isHardware && currentOption.supportsPresets) {
+                    VideoPresetDropdown(
                         uiState = uiState,
-                        onTranscodeOptionSelected = { viewModel.onTranscodeOptionSelected(it) },
-                        onResolutionSelected = { viewModel.onResolutionSelected(it) }
+                        onVideoTranscodePresetSelected = onVideoTranscodePresetSelected
                     )
+                }
 
-                    // HW Bitrate slider
-                    Column {
-                        Text(
-                            text = "Bitrate (HW Encoder): ${uiState.transcodeSettings.bitrateMb} Mbps",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Slider(
-                            value = uiState.transcodeSettings.bitrateMb.toFloat(),
-                            onValueChange = { viewModel.onBitrateChanged(it.toInt()) },
-                            valueRange = 1f..12f,
-                            steps = 10
-                        )
-                    }
-
-                    // SW CRF slider
-                    Column {
-                        Text(
-                            text = "CRF (SW Encoder): ${uiState.transcodeSettings.crf}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Slider(
-                            value = uiState.transcodeSettings.crf.toFloat(),
-                            onValueChange = { viewModel.onCrfChanged(it.toInt()) },
-                            valueRange = 0f..63f,
-                            steps = 62
-                        )
-                    }
-
-                    // Max Parallel Jobs slider
-                    Column {
-                        Text(
-                            text = "Max Parallel Transcode Jobs: ${uiState.transcodeSettings.maxParallelJobs}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Slider(
-                            value = uiState.transcodeSettings.maxParallelJobs.toFloat(),
-                            onValueChange = { viewModel.onMaxParallelJobsChanged(it.toInt()) },
-                            valueRange = 1f..4f,
-                            steps = 2
-                        )
-                    }
+                if (currentOption.isHardware) {
+                    BitrateSlider(
+                        bitrateMb = uiState.transcodeSettings.bitrateMb,
+                        onBitrateChanged = onBitrateChanged
+                    )
+                } else {
+                    CrfSlider(
+                        crf = uiState.transcodeSettings.crf,
+                        onCrfChanged = onCrfChanged
+                    )
                 }
             }
         }
@@ -196,54 +245,79 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun EncoderAndResolutionRow(
+private fun AudioOptionsCard(
     uiState: SettingsUiState,
-    onTranscodeOptionSelected: (TranscodeOption) -> Unit,
-    onResolutionSelected: (TranscodeResolution) -> Unit
+    onAudioTranscodeOptionSelected: (AudioTranscodeOption) -> Unit
 ) {
-    BoxWithConstraints {
-        val isWide = maxWidth >= 480.dp
-        if (isWide) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    EncoderDropdown(
-                        uiState = uiState,
-                        onTranscodeOptionSelected = onTranscodeOptionSelected
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    ResolutionDropdown(
-                        uiState = uiState,
-                        onResolutionSelected = onResolutionSelected
-                    )
-                }
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                EncoderDropdown(
-                    uiState = uiState,
-                    onTranscodeOptionSelected = onTranscodeOptionSelected
-                )
-                ResolutionDropdown(
-                    uiState = uiState,
-                    onResolutionSelected = onResolutionSelected
-                )
-            }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Audio Options",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            AudioEncoderDropdown(
+                uiState = uiState,
+                onAudioTranscodeOptionSelected = onAudioTranscodeOptionSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun SubtitleOptionsCard(
+    uiState: SettingsUiState,
+    onSubtitleTranscodeOptionSelected: (SubtitleTranscodeOption) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Subtitle Options",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            SubtitleEncoderDropdown(
+                uiState = uiState,
+                onSubtitleTranscodeOptionSelected = onSubtitleTranscodeOptionSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun GeneralOptionsCard(
+    uiState: SettingsUiState,
+    onMaxParallelJobsChanged: (Int) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "General Options",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            MaxJobsSlider(
+                maxParallelJobs = uiState.transcodeSettings.maxParallelJobs,
+                onMaxParallelJobsChanged = onMaxParallelJobsChanged
+            )
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EncoderDropdown(
+private fun VideoEncoderDropdown(
     uiState: SettingsUiState,
-    onTranscodeOptionSelected: (TranscodeOption) -> Unit
+    onVideoTranscodeOptionSelected: (VideoTranscodeOption) -> Unit
 ) {
     var codecExpanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
@@ -252,7 +326,11 @@ private fun EncoderDropdown(
     ) {
         val currentOption = uiState.transcodeSettings.option
         val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
-        val selectedLabel = "${currentOption.codecName} (${if (currentOption.isHardware) "HW" else "SW"})${if (is10BitSupported) " • 10-bit supported" else ""}"
+        val selectedLabel = if (currentOption == VideoTranscodeOption.KEEP) {
+            "Keep"
+        } else {
+            "${currentOption.codecName} (${if (currentOption.isHardware) "HW" else "SW"})${if (is10BitSupported) " • 10-bit supported" else ""}"
+        }
 
         OutlinedTextField(
             value = selectedLabel,
@@ -268,17 +346,17 @@ private fun EncoderDropdown(
             expanded = codecExpanded,
             onDismissRequest = { codecExpanded = false }
         ) {
-            uiState.supportedOptions.forEach { option ->
+            uiState.supportedVideoOptions.forEach { option ->
                 val supports10Bit = uiState.tenBitSupportMap[option] ?: true
                 DropdownMenuItem(
                     text = {
-                        EncoderOptionItem(
+                        VideoEncoderOptionItem(
                             option = option,
                             supports10Bit = supports10Bit
                         )
                     },
                     onClick = {
-                        onTranscodeOptionSelected(option)
+                        onVideoTranscodeOptionSelected(option)
                         codecExpanded = false
                     }
                 )
@@ -325,53 +403,274 @@ private fun ResolutionDropdown(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EncoderOptionItem(
-    option: TranscodeOption,
-    supports10Bit: Boolean
+private fun VideoPresetDropdown(
+    uiState: SettingsUiState,
+    onVideoTranscodePresetSelected: (VideoTranscodePreset) -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    var presetExpanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = presetExpanded,
+        onExpandedChange = { presetExpanded = !presetExpanded }
     ) {
-        Text(
-            text = option.codecName,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold
+        OutlinedTextField(
+            value = uiState.transcodeSettings.preset.label,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Preset") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = presetExpanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
-        Surface(
-            shape = MaterialTheme.shapes.extraSmall,
-            color = if (option.isHardware) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        ExposedDropdownMenu(
+            expanded = presetExpanded,
+            onDismissRequest = { presetExpanded = false }
         ) {
-            Text(
-                text = if (option.isHardware) "HW" else "SW",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (option.isHardware) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
-        if (supports10Bit) {
-            Surface(
-                shape = MaterialTheme.shapes.extraSmall,
-                color = MaterialTheme.colorScheme.tertiaryContainer
-            ) {
-                Text(
-                    text = "10-bit supported",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            VideoTranscodePreset.entries.forEach { preset ->
+                DropdownMenuItem(
+                    text = { Text(preset.label) },
+                    onClick = {
+                        onVideoTranscodePresetSelected(preset)
+                        presetExpanded = false
+                    }
                 )
             }
         }
-        if (option == TranscodeOption.X265_HW) {
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AudioEncoderDropdown(
+    uiState: SettingsUiState,
+    onAudioTranscodeOptionSelected: (AudioTranscodeOption) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        val current = uiState.transcodeSettings.audioOption
+        val selectedText = if (current == AudioTranscodeOption.KEEP) {
+            "Keep"
+        } else {
+            "${current.codecName} (${if (current.isHardware) "HW" else "SW"})"
+        }
+
+        OutlinedTextField(
+            value = selectedText,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Audio Encoder") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            uiState.supportedAudioOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = { AudioEncoderOptionItem(option = option) },
+                    onClick = {
+                        onAudioTranscodeOptionSelected(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubtitleEncoderDropdown(
+    uiState: SettingsUiState,
+    onSubtitleTranscodeOptionSelected: (SubtitleTranscodeOption) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = uiState.transcodeSettings.subtitleOption.codecName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Subtitle Encoder") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            SubtitleTranscodeOption.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.codecName) },
+                    onClick = {
+                        onSubtitleTranscodeOptionSelected(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BitrateSlider(
+    bitrateMb: Int,
+    onBitrateChanged: (Int) -> Unit
+) {
+    Column {
+        Text(
+            text = "Bitrate (HW Encoder): $bitrateMb Mbps",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Slider(
+            value = bitrateMb.toFloat(),
+            onValueChange = { onBitrateChanged(it.toInt()) },
+            valueRange = 1f..12f,
+            steps = 10
+        )
+    }
+}
+
+@Composable
+private fun CrfSlider(
+    crf: Int,
+    onCrfChanged: (Int) -> Unit
+) {
+    Column {
+        Text(
+            text = "CRF (SW Encoder): $crf",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Slider(
+            value = crf.toFloat(),
+            onValueChange = { onCrfChanged(it.toInt()) },
+            valueRange = 0f..63f,
+            steps = 62
+        )
+    }
+}
+
+@Composable
+private fun MaxJobsSlider(
+    maxParallelJobs: Int,
+    onMaxParallelJobsChanged: (Int) -> Unit
+) {
+    Column {
+        Text(
+            text = "Max Parallel Transcode Jobs: $maxParallelJobs",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Slider(
+            value = maxParallelJobs.toFloat(),
+            onValueChange = { onMaxParallelJobsChanged(it.toInt()) },
+            valueRange = 1f..4f,
+            steps = 2
+        )
+    }
+}
+
+@Composable
+private fun VideoEncoderOptionItem(
+    option: VideoTranscodeOption,
+    supports10Bit: Boolean
+) {
+    if (option == VideoTranscodeOption.KEEP) {
+        Text(
+            text = "Keep",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+    } else {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = option.codecName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
             Surface(
                 shape = MaterialTheme.shapes.extraSmall,
-                color = MaterialTheme.colorScheme.errorContainer
+                color = if (option.isHardware) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Text(
-                    text = "seeking might be broken",
+                    text = if (option.isHardware) "HW" else "SW",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = if (option.isHardware) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            if (supports10Bit) {
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Text(
+                        text = "10-bit supported",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            if (option == VideoTranscodeOption.X265_HW) {
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        text = "seeking might be broken",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioEncoderOptionItem(
+    option: AudioTranscodeOption
+) {
+    if (option == AudioTranscodeOption.KEEP) {
+        Text(
+            text = "Keep",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+    } else {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = option.codecName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Surface(
+                shape = MaterialTheme.shapes.extraSmall,
+                color = if (option.isHardware) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Text(
+                    text = if (option.isHardware) "HW" else "SW",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (option.isHardware) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
