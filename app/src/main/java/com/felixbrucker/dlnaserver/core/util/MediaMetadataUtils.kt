@@ -17,6 +17,13 @@ data class ExtractedMediaMetadata(
     val is10Bit: Boolean = false
 )
 
+data class MediaTrackCodecs(
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val subtitleCodec: String? = null,
+    val is10Bit: Boolean = false
+)
+
 object MediaMetadataUtils {
 
     fun extractMetadata(file: File): ExtractedMediaMetadata {
@@ -44,7 +51,8 @@ object MediaMetadataUtils {
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
             val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
-            val is10Bit = is10Bit(file)
+
+            val trackCodecs = extractTrackCodecs(file)
 
             ExtractedMediaMetadata(
                 durationFormatted = durationStr,
@@ -54,7 +62,7 @@ object MediaMetadataUtils {
                 artist = artist,
                 album = album,
                 genre = genre,
-                is10Bit = is10Bit
+                is10Bit = trackCodecs.is10Bit
             )
         } catch (_: Exception) {
             ExtractedMediaMetadata()
@@ -62,6 +70,97 @@ object MediaMetadataUtils {
             try {
                 retriever.release()
             } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun extractTrackCodecs(file: File): MediaTrackCodecs {
+        if (!file.exists() || !file.isFile) return MediaTrackCodecs()
+
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            var videoCodec: String? = null
+            var audioCodec: String? = null
+            var subtitleCodec: String? = null
+            var is10Bit = false
+
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
+
+                if (mime.startsWith("video/")) {
+                    if (videoCodec == null) {
+                        videoCodec = when (mime.lowercase()) {
+                            "video/avc" -> "x264"
+                            "video/hevc" -> "x265"
+                            "video/x-vnd.on2.vp9" -> "VP9"
+                            "video/av01" -> "AV1"
+                            "video/mp4v-es" -> "MPEG4"
+                            "video/3gpp" -> "H263"
+                            else -> mime.removePrefix("video/").uppercase()
+                        }
+                    }
+
+                    if (!is10Bit) {
+                        if (format.containsKey(MediaFormat.KEY_PROFILE)) {
+                            val profile = format.getInteger(MediaFormat.KEY_PROFILE)
+                            if (profile.is10BitProfileFor(mime)) {
+                                is10Bit = true
+                            }
+                        }
+                        if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
+                            val transfer = format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
+                            if (transfer == MediaFormat.COLOR_TRANSFER_HLG || transfer == MediaFormat.COLOR_TRANSFER_ST2084) {
+                                is10Bit = true
+                            }
+                        }
+                        if (format.containsKey("bits-per-sample") && format.getInteger("bits-per-sample") == 10) {
+                            is10Bit = true
+                        }
+                        if (format.containsKey("bit-depth") && format.getInteger("bit-depth") == 10) {
+                            is10Bit = true
+                        }
+                    }
+                } else if (mime.startsWith("audio/")) {
+                    if (audioCodec == null) {
+                        audioCodec = when (mime.lowercase()) {
+                            "audio/mp4a-latm" -> "AAC"
+                            "audio/ac3" -> "AC3"
+                            "audio/eac3" -> "EAC3"
+                            "audio/flac" -> "FLAC"
+                            "audio/mpeg" -> "MP3"
+                            "audio/vorbis" -> "Vorbis"
+                            "audio/opus" -> "Opus"
+                            "audio/raw" -> "PCM"
+                            else -> mime.removePrefix("audio/").uppercase()
+                        }
+                    }
+                } else if (mime.startsWith("text/") || mime.startsWith("subtitle/")) {
+                    if (subtitleCodec == null) {
+                        subtitleCodec = when (mime.lowercase()) {
+                            "text/vtt" -> "WebVTT"
+                            "text/x-subrip" -> "SRT"
+                            "text/ssa" -> "ASS"
+                            "text/ass" -> "ASS"
+                            else -> mime.removePrefix("text/").removePrefix("subtitle/").uppercase()
+                        }
+                    }
+                }
+            }
+
+            MediaTrackCodecs(
+                videoCodec = videoCodec,
+                audioCodec = audioCodec,
+                subtitleCodec = subtitleCodec,
+                is10Bit = is10Bit
+            )
+        } catch (_: Throwable) {
+            MediaTrackCodecs()
+        } finally {
+            try {
+                extractor.release()
+            } catch (_: Throwable) {
             }
         }
     }
@@ -81,130 +180,13 @@ object MediaMetadataUtils {
         }
     }
 
-    fun getVideoCodecName(file: File): String? {
-        if (!file.exists() || !file.isFile) return null
-        val extractor = MediaExtractor()
-        return try {
-            extractor.setDataSource(file.absolutePath)
-            for (i in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(i)
-                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
-                if (mime.startsWith("video/")) {
-                    return when (mime.lowercase()) {
-                        "video/avc" -> "x264"
-                        "video/hevc" -> "x265"
-                        "video/x-vnd.on2.vp9" -> "VP9"
-                        "video/av01" -> "AV1"
-                        "video/mp4v-es" -> "MPEG4"
-                        "video/3gpp" -> "H263"
-                        else -> mime.removePrefix("video/").uppercase()
-                    }
-                }
-            }
-            null
-        } catch (_: Throwable) {
-            null
-        } finally {
-            try { extractor.release() } catch (_: Throwable) {}
-        }
-    }
+    fun getVideoCodecName(file: File): String? = extractTrackCodecs(file).videoCodec
 
-    fun getAudioCodecName(file: File): String? {
-        if (!file.exists() || !file.isFile) return null
-        val extractor = MediaExtractor()
-        return try {
-            extractor.setDataSource(file.absolutePath)
-            for (i in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(i)
-                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
-                if (mime.startsWith("audio/")) {
-                    return when (mime.lowercase()) {
-                        "audio/mp4a-latm" -> "AAC"
-                        "audio/ac3" -> "AC3"
-                        "audio/eac3" -> "EAC3"
-                        "audio/flac" -> "FLAC"
-                        "audio/mpeg" -> "MP3"
-                        "audio/vorbis" -> "Vorbis"
-                        "audio/opus" -> "Opus"
-                        "audio/raw" -> "PCM"
-                        else -> mime.removePrefix("audio/").uppercase()
-                    }
-                }
-            }
-            null
-        } catch (_: Throwable) {
-            null
-        } finally {
-            try { extractor.release() } catch (_: Throwable) {}
-        }
-    }
+    fun getAudioCodecName(file: File): String? = extractTrackCodecs(file).audioCodec
 
-    fun getSubtitleCodecName(file: File): String? {
-        if (!file.exists() || !file.isFile) return null
-        val extractor = MediaExtractor()
-        return try {
-            extractor.setDataSource(file.absolutePath)
-            for (i in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(i)
-                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
-                if (mime.startsWith("text/") || mime.startsWith("subtitle/")) {
-                    return when (mime.lowercase()) {
-                        "text/vtt" -> "WebVTT"
-                        "text/x-subrip" -> "SRT"
-                        "text/ssa" -> "ASS"
-                        "text/ass" -> "ASS"
-                        else -> mime.removePrefix("text/").removePrefix("subtitle/").uppercase()
-                    }
-                }
-            }
-            null
-        } catch (_: Throwable) {
-            null
-        } finally {
-            try { extractor.release() } catch (_: Throwable) {}
-        }
-    }
+    fun getSubtitleCodecName(file: File): String? = extractTrackCodecs(file).subtitleCodec
 
-    fun is10Bit(file: File): Boolean {
-        if (!file.exists() || !file.isFile) return false
-
-        val extractor = MediaExtractor()
-        return try {
-            extractor.setDataSource(file.absolutePath)
-            for (i in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(i)
-                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
-                if (mime.startsWith("video/")) {
-                    if (format.containsKey(MediaFormat.KEY_PROFILE)) {
-                        val profile = format.getInteger(MediaFormat.KEY_PROFILE)
-                        if (profile.is10BitProfileFor(mime)) {
-                            return true
-                        }
-                    }
-                    if (format.containsKey(MediaFormat.KEY_COLOR_TRANSFER)) {
-                        val transfer = format.getInteger(MediaFormat.KEY_COLOR_TRANSFER)
-                        if (transfer == MediaFormat.COLOR_TRANSFER_HLG || transfer == MediaFormat.COLOR_TRANSFER_ST2084) {
-                            return true
-                        }
-                    }
-                    if (format.containsKey("bits-per-sample") && format.getInteger("bits-per-sample") == 10) {
-                        return true
-                    }
-                    if (format.containsKey("bit-depth") && format.getInteger("bit-depth") == 10) {
-                        return true
-                    }
-                }
-            }
-            false
-        } catch (_: Throwable) {
-            false
-        } finally {
-            try {
-                extractor.release()
-            } catch (_: Throwable) {
-            }
-        }
-    }
+    fun is10Bit(file: File): Boolean = extractTrackCodecs(file).is10Bit
 
     private fun formatDuration(durationMs: Long): String {
         val secondsTotal = durationMs / 1000

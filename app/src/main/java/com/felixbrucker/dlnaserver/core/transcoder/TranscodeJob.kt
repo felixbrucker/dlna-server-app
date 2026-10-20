@@ -22,7 +22,7 @@ data class TranscodeJob(
     val totalDurationMs: Long = 0L,
     val bitDepthChange: String? = null,
     val resolutionChange: String? = null,
-    val codecChange: String? = null,
+    val videoCodecChange: String? = null,
     val audioCodecChange: String? = null,
     val subtitleCodecChange: String? = null
 )

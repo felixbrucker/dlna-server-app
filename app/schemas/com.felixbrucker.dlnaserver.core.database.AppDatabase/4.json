@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "91b28266ed820f3bd9fefefb780c7767",
+    "identityHash": "e5f6cd9771345df8c2d6f89f80f0f91a",
     "entities": [
       {
         "tableName": "shared_directories",
@@ -59,7 +59,7 @@
       },
       {
         "tableName": "transcode_jobs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `inputFilePath` TEXT NOT NULL, `outputFilePath` TEXT NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `totalDurationMs` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `bitDepthChange` TEXT, `resolutionChange` TEXT, `codecChange` TEXT, `audioCodecChange` TEXT, `subtitleCodecChange` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `inputFilePath` TEXT NOT NULL, `outputFilePath` TEXT NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `totalDurationMs` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `bitDepthChange` TEXT, `resolutionChange` TEXT, `videoCodecChange` TEXT, `audioCodecChange` TEXT, `subtitleCodecChange` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -113,8 +113,8 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "codecChange",
-            "columnName": "codecChange",
+            "fieldPath": "videoCodecChange",
+            "columnName": "videoCodecChange",
             "affinity": "TEXT"
           },
           {
@@ -138,7 +138,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '91b28266ed820f3bd9fefefb780c7767')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e5f6cd9771345df8c2d6f89f80f0f91a')"
     ]
   }
 }

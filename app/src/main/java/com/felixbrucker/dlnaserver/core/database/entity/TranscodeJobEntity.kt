@@ -17,7 +17,7 @@ data class TranscodeJobEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val bitDepthChange: String? = null,
     val resolutionChange: String? = null,
-    val codecChange: String? = null,
+    val videoCodecChange: String? = null,
     val audioCodecChange: String? = null,
     val subtitleCodecChange: String? = null
 ) {

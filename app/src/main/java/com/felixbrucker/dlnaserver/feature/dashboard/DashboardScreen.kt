@@ -470,7 +470,7 @@ private fun TranscodeJobRow(
             TranscodeJobBadges(
                 resolutionChange = job.resolutionChange,
                 bitDepthChange = job.bitDepthChange,
-                codecChange = job.codecChange,
+                videoCodecChange = job.videoCodecChange,
                 audioCodecChange = job.audioCodecChange,
                 subtitleCodecChange = job.subtitleCodecChange
             )
@@ -511,11 +511,11 @@ private fun TranscodeJobRow(
 private fun TranscodeJobBadges(
     resolutionChange: String?,
     bitDepthChange: String?,
-    codecChange: String?,
+    videoCodecChange: String?,
     audioCodecChange: String?,
     subtitleCodecChange: String?
 ) {
-    if (resolutionChange.isNullOrBlank() && bitDepthChange.isNullOrBlank() && codecChange.isNullOrBlank() && audioCodecChange.isNullOrBlank() && subtitleCodecChange.isNullOrBlank()) {
+    if (resolutionChange.isNullOrBlank() && bitDepthChange.isNullOrBlank() && videoCodecChange.isNullOrBlank() && audioCodecChange.isNullOrBlank() && subtitleCodecChange.isNullOrBlank()) {
         return
     }
     FlowRow(
@@ -539,7 +539,7 @@ private fun TranscodeJobBadges(
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
             )
         }
-        codecChange?.let {
+        videoCodecChange?.let {
             BadgeChip(
                 text = it,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
