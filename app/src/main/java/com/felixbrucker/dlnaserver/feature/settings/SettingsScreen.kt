@@ -588,7 +588,7 @@ private fun BitrateSlider(
 ) {
     Column {
         Text(
-            text = "Bitrate (HW Encoder): $bitrateMb Mbps",
+            text = "Bitrate: $bitrateMb Mbps",
             style = MaterialTheme.typography.bodyMedium
         )
         Slider(
@@ -607,7 +607,7 @@ private fun CrfSlider(
 ) {
     Column {
         Text(
-            text = "CRF (SW Encoder): $crf",
+            text = "CRF: $crf",
             style = MaterialTheme.typography.bodyMedium
         )
         Slider(
