@@ -1,6 +1,7 @@
 package com.felixbrucker.dlnaserver.feature.dashboard
 
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
+import com.felixbrucker.dlnaserver.core.model.NetworkInterfaceInfo
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
 import java.io.File
 
@@ -15,6 +16,8 @@ data class DashboardMediaFileItem(
 
 data class DashboardUiState(
     val serverInfo: DlnaServerInfo = DlnaServerInfo(),
+    val availableNetworkInterfaces: List<NetworkInterfaceInfo> = emptyList(),
+    val selectedNetworkInterface: String = "auto",
     val permissionGranted: Boolean = true,
     val searchInput: String = "",
     val submittedSearchQuery: String = "",

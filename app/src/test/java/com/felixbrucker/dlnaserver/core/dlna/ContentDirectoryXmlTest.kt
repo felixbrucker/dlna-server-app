@@ -1,11 +1,31 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import android.webkit.MimeTypeMap
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import org.junit.After
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import java.io.File
 
 class ContentDirectoryXmlTest {
+
+    @Before
+    fun setUp() {
+        mockkStatic(MimeTypeMap::class)
+        val mimeTypeMapMock = mockk<MimeTypeMap>()
+        every { MimeTypeMap.getSingleton() } returns mimeTypeMapMock
+        every { mimeTypeMapMock.getMimeTypeFromExtension(any()) } returns null
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(MimeTypeMap::class)
+    }
 
     @Test
     fun testGenerateDeviceDescriptionContainsFriendlyNameAndServices() {

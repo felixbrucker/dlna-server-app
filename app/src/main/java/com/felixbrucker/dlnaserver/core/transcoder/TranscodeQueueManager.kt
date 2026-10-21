@@ -40,6 +40,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 import kotlin.coroutines.resume
 import kotlin.math.round
 
@@ -132,6 +133,8 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = File(parentDir, outputFileName)
         val jobId = UUID.randomUUID().toString()
 
+        Timber.i("Enqueueing transcode job for file: %s (jobId: %s)", inputFile.name, jobId)
+
         scope.launch {
             val settings = appSettingsRepository.transcodeSettings.first()
             val videoTranscodeOption = settings.videoTranscodeOption
@@ -209,6 +212,7 @@ class TranscodeQueueManager @Inject constructor(
     }
 
     fun cancelJob(jobId: String) {
+        Timber.i("Cancelling transcode job: %s", jobId)
         val task = runningJobTasks.remove(jobId)
         task?.cancel()
         scope.launch {
@@ -223,6 +227,7 @@ class TranscodeQueueManager @Inject constructor(
     }
 
     fun retryJob(jobId: String) {
+        Timber.i("Retrying transcode job: %s", jobId)
         scope.launch {
             transcodeJobDao.updateJobStatus(jobId, TranscodeJobStatus.QUEUED, errorMessage = null)
             _progressMap.value += (jobId to TranscodeJobProgress(jobId))
@@ -261,6 +266,8 @@ class TranscodeQueueManager @Inject constructor(
         val outputFile = job.outputFile
         val argumentsList = job.makeFfmpegCommandArguments(settings)
 
+        Timber.i("Executing transcode job: %s with args: %s", job.id, argumentsList.joinToString(" "))
+
         try {
             val session = suspendCancellableCoroutine { continuation ->
                 val asyncSession = FFmpegKit.executeWithArgumentsAsync(
@@ -284,10 +291,12 @@ class TranscodeQueueManager @Inject constructor(
             }
 
             if (session.returnCode.isValueSuccess) {
+                Timber.i("Transcode job completed successfully: %s", job.id)
                 outputFile.notifySystemOfNewFile(context)
                 transcodeJobDao.deleteJobById(job.id)
                 _progressMap.value -= job.id
             } else {
+                Timber.e("Transcode job failed: %s (returnCode: %s)", job.id, session.returnCode)
                 val errorLogLines = session.getAllErrorLogLines()
                 val errorMsg = if (errorLogLines.isNotEmpty()) {
                     "FFmpeg exit code: ${session.returnCode}. Logs: ${errorLogLines.joinToString("")}"

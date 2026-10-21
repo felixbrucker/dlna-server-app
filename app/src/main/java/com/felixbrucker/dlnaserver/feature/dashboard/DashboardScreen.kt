@@ -182,6 +182,9 @@ fun DashboardScreen(
             } else {
                 ServerStatusCard(
                     serverInfo = uiState.serverInfo,
+                    availableNetworkInterfaces = uiState.availableNetworkInterfaces,
+                    selectedNetworkInterface = uiState.selectedNetworkInterface,
+                    onNetworkInterfaceSelected = { viewModel.onNetworkInterfaceSelected(it) },
                     onToggleServer = { viewModel.toggleServer() }
                 )
                 ClientActivityCard(

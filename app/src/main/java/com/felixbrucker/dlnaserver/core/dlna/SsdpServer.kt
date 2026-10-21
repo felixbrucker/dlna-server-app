@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.net.DatagramPacket
 import java.net.InetAddress
 import java.net.MulticastSocket
@@ -26,6 +27,8 @@ class SsdpServer @Inject constructor() {
     fun start(ipAddress: String, networkInterfaceName: String?, scope: CoroutineScope) {
         if (isRunning) return
         isRunning = true
+
+        Timber.i("Starting SSDP Server on IP %s (interface: %s)", ipAddress, networkInterfaceName ?: "default")
 
         scope.launch(Dispatchers.IO) {
             try {
@@ -68,7 +71,8 @@ class SsdpServer @Inject constructor() {
                         handleMSearch(socket, packet, message, ipAddress)
                     }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Timber.e(e, "Error in SSDP server listener loop")
             } finally {
                 stop()
             }
@@ -78,6 +82,8 @@ class SsdpServer @Inject constructor() {
     fun stop() {
         if (!isRunning) return
         isRunning = false
+
+        Timber.i("Stopping SSDP Server")
 
         notifyJob?.cancel()
         notifyJob = null

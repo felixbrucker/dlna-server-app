@@ -1,10 +1,32 @@
 package com.felixbrucker.dlnaserver.core.util
 
+import android.webkit.MimeTypeMap
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 import java.io.File
 
 class MimeTypeUtilsTest {
+
+    private lateinit var mimeTypeMapMock: MimeTypeMap
+
+    @Before
+    fun setUp() {
+        mockkStatic(MimeTypeMap::class)
+        mimeTypeMapMock = mockk()
+        every { MimeTypeMap.getSingleton() } returns mimeTypeMapMock
+        every { mimeTypeMapMock.getMimeTypeFromExtension(any()) } returns null
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(MimeTypeMap::class)
+    }
 
     @Test
     fun testGetMimeTypeForVideoFile() {
@@ -31,6 +53,16 @@ class MimeTypeUtilsTest {
         val mimeType = MimeTypeUtils.getMimeType(file)
 
         assertEquals("image/png", mimeType)
+    }
+
+    @Test
+    fun testGetMimeTypeFromMimeTypeMap() {
+        val file = File("/tmp/sample.custom")
+        every { mimeTypeMapMock.getMimeTypeFromExtension("custom") } returns "application/x-custom"
+
+        val mimeType = MimeTypeUtils.getMimeType(file)
+
+        assertEquals("application/x-custom", mimeType)
     }
 
     @Test

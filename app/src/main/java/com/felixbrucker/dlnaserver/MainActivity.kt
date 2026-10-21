@@ -8,14 +8,15 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.felixbrucker.dlnaserver.core.designsystem.theme.DlnaServerTheme
+import com.felixbrucker.dlnaserver.core.extensions.popBackStackSafely
 import com.felixbrucker.dlnaserver.feature.dashboard.DashboardScreen
 import com.felixbrucker.dlnaserver.feature.dashboard.DashboardViewModel
+import com.felixbrucker.dlnaserver.feature.logs.LogViewerScreen
 import com.felixbrucker.dlnaserver.feature.settings.SettingsScreen
 import com.felixbrucker.dlnaserver.feature.settings.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,21 +37,36 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var currentScreen by remember { mutableStateOf("dashboard") }
+                    val navController = rememberNavController()
 
-                    when (currentScreen) {
-                        "settings" -> {
-                            SettingsScreen(
-                                viewModel = settingsViewModel,
-                                onNavigateBack = {
-                                    currentScreen = "dashboard"
+                    NavHost(
+                        navController = navController,
+                        startDestination = "dashboard"
+                    ) {
+                        composable("dashboard") {
+                            DashboardScreen(
+                                viewModel = dashboardViewModel,
+                                onNavigateToSettings = {
+                                    navController.navigate("settings") {
+                                        launchSingleTop = true
+                                    }
                                 }
                             )
                         }
-                        else -> {
-                            DashboardScreen(
-                                viewModel = dashboardViewModel,
-                                onNavigateToSettings = { currentScreen = "settings" }
+                        composable("settings") {
+                            SettingsScreen(
+                                viewModel = settingsViewModel,
+                                onNavigateBack = { navController.popBackStackSafely() },
+                                onNavigateToLogViewer = {
+                                    navController.navigate("log_viewer") {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+                        composable("log_viewer") {
+                            LogViewerScreen(
+                                onNavigateBack = { navController.popBackStackSafely() }
                             )
                         }
                     }

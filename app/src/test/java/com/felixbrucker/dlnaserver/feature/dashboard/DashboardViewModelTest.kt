@@ -9,6 +9,7 @@ import com.felixbrucker.dlnaserver.feature.service.DlnaServiceLauncher
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,7 @@ class DashboardViewModelTest {
     private lateinit var sharedDirectoryRepositoryMock: SharedDirectoryRepository
     private lateinit var transcodeQueueManagerMock: TranscodeQueueManager
     private val serverInfoFlow = MutableStateFlow(DlnaServerInfo(status = ServerStatus.STOPPED))
+    private val selectedInterfaceFlow = MutableStateFlow("auto")
 
     @Before
     fun setUp() {
@@ -43,6 +45,7 @@ class DashboardViewModelTest {
         transcodeQueueManagerMock = mockk(relaxed = true)
 
         coEvery { dlnaServerEngineMock.serverInfo } returns serverInfoFlow
+        coEvery { dlnaServerEngineMock.selectedInterface } returns selectedInterfaceFlow
         coEvery { sharedDirectoryRepositoryMock.allDirectories } returns flowOf(emptyList())
         coEvery { sharedDirectoryRepositoryMock.getEnabledDirectoriesSync() } returns emptyList()
         coEvery { transcodeQueueManagerMock.jobs } returns MutableStateFlow(emptyList())
@@ -66,6 +69,7 @@ class DashboardViewModelTest {
         val state = viewModel.uiState.value
 
         assertEquals(ServerStatus.STOPPED, state.serverInfo.status)
+        assertEquals("auto", state.selectedNetworkInterface)
         assertTrue(state.mediaFiles.isEmpty())
     }
 
@@ -83,5 +87,20 @@ class DashboardViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify { transcodeQueueManagerMock.enqueueJob(dummyFile) }
+    }
+
+    @Test
+    fun testOnNetworkInterfaceSelectedDelegatesToEngine() = runTest {
+        val viewModel = DashboardViewModel(
+            dlnaServerEngineMock,
+            dlnaServiceLauncherMock,
+            sharedDirectoryRepositoryMock,
+            transcodeQueueManagerMock
+        )
+
+        viewModel.onNetworkInterfaceSelected("wlan0")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        verify { dlnaServerEngineMock.setSelectedInterface("wlan0") }
     }
 }

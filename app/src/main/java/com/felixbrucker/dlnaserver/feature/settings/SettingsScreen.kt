@@ -1,9 +1,7 @@
 package com.felixbrucker.dlnaserver.feature.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,15 +9,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.sp
+import com.felixbrucker.dlnaserver.core.designsystem.theme.PurpleContainerSoft
+import com.felixbrucker.dlnaserver.core.designsystem.theme.SurfaceSettingsPurpleDark
+import com.felixbrucker.dlnaserver.core.designsystem.theme.TextSubtle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -58,10 +65,9 @@ import com.felixbrucker.dlnaserver.feature.dashboard.components.FolderPickerDial
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
+    onNavigateToLogViewer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onNavigateBack)
-
     val uiState by viewModel.uiState.collectAsState()
     var showFolderPicker by remember { mutableStateOf(false) }
 
@@ -117,6 +123,56 @@ fun SettingsScreen(
                 onSubtitleTranscodeOptionSelected = { viewModel.onSubtitleTranscodeOptionSelected(it) },
                 onMaxParallelJobsChanged = { viewModel.onMaxParallelJobsChanged(it) }
             )
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Debug",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    SettingsAppLogsSection(
+                        onNavigateToLogViewer = onNavigateToLogViewer
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsAppLogsSection(
+    onNavigateToLogViewer: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            "View diagnostic logs generated during app operation across current and earlier app runs.",
+            color = TextSubtle,
+            fontSize = 12.sp,
+            lineHeight = 16.sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = onNavigateToLogViewer,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = SurfaceSettingsPurpleDark,
+                contentColor = PurpleContainerSoft
+            ),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("view_logs_button")
+        ) {
+            Icon(
+                Icons.Default.Terminal,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("View Logs", fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
 }

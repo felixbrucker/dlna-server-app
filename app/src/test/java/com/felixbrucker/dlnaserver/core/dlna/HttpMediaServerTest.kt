@@ -1,9 +1,13 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import android.webkit.MimeTypeMap
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -31,6 +35,11 @@ class HttpMediaServerTest {
 
     @Before
     fun setUp() {
+        mockkStatic(MimeTypeMap::class)
+        val mimeTypeMapMock = mockk<MimeTypeMap>()
+        every { MimeTypeMap.getSingleton() } returns mimeTypeMapMock
+        every { mimeTypeMapMock.getMimeTypeFromExtension(any()) } returns null
+
         tempFile = File.createTempFile("test_media", ".mp4").apply {
             writeBytes(ByteArray(1024 * 100) { 0x01.toByte() })
             deleteOnExit()
@@ -52,6 +61,7 @@ class HttpMediaServerTest {
         if (tempFile.exists()) {
             tempFile.delete()
         }
+        unmockkStatic(MimeTypeMap::class)
     }
 
     private fun startServer(): HttpMediaServer {
