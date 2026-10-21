@@ -218,23 +218,29 @@ class HttpMediaServer @Inject constructor(
             status = mediaRequestContext.status,
             contentLength = mediaRequestContext.effectiveRange.contentLength
         ) {
-            RandomAccessFile(file, "r").use { raf ->
-                raf.seek(mediaRequestContext.effectiveRange.start)
-                val buffer = ByteArray(64 * 1024)
-                var bytesToRead = mediaRequestContext.effectiveRange.contentLength
-                var lastTimeUpdate = System.currentTimeMillis()
+            withContext(Dispatchers.IO) {
+                RandomAccessFile(file, "r").use { raf ->
+                    raf.seek(mediaRequestContext.effectiveRange.start)
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesToRead = mediaRequestContext.effectiveRange.contentLength
+                    var lastTimeUpdate = System.currentTimeMillis()
+                    var chunkCount = 0
 
-                while (bytesToRead > 0) {
-                    val readLength = minOf(buffer.size.toLong(), bytesToRead).toInt()
-                    val read = raf.read(buffer, 0, readLength)
-                    if (read <= 0) break
-                    writeFully(buffer, 0, read)
-                    bytesToRead -= read
+                    while (bytesToRead > 0) {
+                        val readLength = minOf(buffer.size.toLong(), bytesToRead).toInt()
+                        val read = raf.read(buffer, 0, readLength)
+                        if (read <= 0) break
+                        writeFully(buffer, 0, read)
+                        bytesToRead -= read
 
-                    val now = System.currentTimeMillis()
-                    if (now - lastTimeUpdate >= 5000) {
-                        updateClientActivity(mediaRequestContext.clientInfo, "Streaming: ${file.name}")
-                        lastTimeUpdate = now
+                        chunkCount++
+                        if (chunkCount % 16 == 0) {
+                            val now = System.currentTimeMillis()
+                            if (now - lastTimeUpdate >= 5000) {
+                                updateClientActivity(mediaRequestContext.clientInfo, "Streaming: ${file.name}")
+                                lastTimeUpdate = now
+                            }
+                        }
                     }
                 }
             }
