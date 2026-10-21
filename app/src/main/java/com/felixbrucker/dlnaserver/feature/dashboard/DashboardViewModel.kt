@@ -10,6 +10,7 @@ import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeQueueManager
 import com.felixbrucker.dlnaserver.core.util.MediaMetadataUtils
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
+import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 import com.felixbrucker.dlnaserver.feature.service.DlnaServiceLauncher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +29,7 @@ import kotlin.math.pow
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    dlnaServerEngine: DlnaServerEngine,
+    private val dlnaServerEngine: DlnaServerEngine,
     private val dlnaServiceLauncher: DlnaServiceLauncher,
     private val sharedDirectoryRepository: SharedDirectoryRepository,
     private val transcodeQueueManager: TranscodeQueueManager
@@ -46,6 +47,7 @@ class DashboardViewModel @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<DashboardUiState> = combine(
         dlnaServerEngine.serverInfo,
+        dlnaServerEngine.selectedInterface,
         permissionGranted,
         searchInput,
         submittedSearchQuery,
@@ -56,14 +58,15 @@ class DashboardViewModel @Inject constructor(
         isScanning
     ) { args: Array<Any?> ->
         val serverInfo = args[0] as DlnaServerInfo
-        val hasPerm = args[1] as Boolean
-        val sInput = args[2] as String
-        val sSubmitted = args[3] as String
-        val searchOpen = args[4] as Boolean
-        val files = args[5] as List<DashboardMediaFileItem>
-        val jobs = args[6] as List<TranscodeJob>
-        val bottomSheetOpen = args[7] as Boolean
-        val scanning = args[8] as Boolean
+        val selectedNetIf = args[1] as String
+        val hasPerm = args[2] as Boolean
+        val sInput = args[3] as String
+        val sSubmitted = args[4] as String
+        val searchOpen = args[5] as Boolean
+        val files = args[6] as List<DashboardMediaFileItem>
+        val jobs = args[7] as List<TranscodeJob>
+        val bottomSheetOpen = args[8] as Boolean
+        val scanning = args[9] as Boolean
 
         val visibleJobs = jobs.filter { job ->
             job.status == TranscodeJobStatus.QUEUED ||
@@ -80,8 +83,12 @@ class DashboardViewModel @Inject constructor(
             fileItem.copy(isTranscodeDisabled = isDisabled)
         }
 
+        val availableNetInterfaces = NetworkUtils.getAvailableNetworkInterfaces()
+
         DashboardUiState(
             serverInfo = serverInfo,
+            availableNetworkInterfaces = availableNetInterfaces,
+            selectedNetworkInterface = selectedNetIf,
             permissionGranted = hasPerm,
             searchInput = sInput,
             submittedSearchQuery = sSubmitted,
@@ -118,6 +125,10 @@ class DashboardViewModel @Inject constructor(
 
     fun setBottomSheetOpen(isOpen: Boolean) {
         isBottomSheetOpen.value = isOpen
+    }
+
+    fun onNetworkInterfaceSelected(interfaceName: String) {
+        dlnaServerEngine.setSelectedInterface(interfaceName)
     }
 
     fun toggleServer() {

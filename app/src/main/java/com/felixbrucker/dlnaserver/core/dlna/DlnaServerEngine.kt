@@ -21,8 +21,20 @@ class DlnaServerEngine @Inject constructor(
 
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val _selectedInterface = MutableStateFlow("auto")
+    val selectedInterface: StateFlow<String> = _selectedInterface.asStateFlow()
+
     private val _serverInfo = MutableStateFlow(DlnaServerInfo())
     val serverInfo: StateFlow<DlnaServerInfo> = _serverInfo.asStateFlow()
+
+    fun setSelectedInterface(interfaceName: String) {
+        if (_selectedInterface.value == interfaceName) return
+        _selectedInterface.value = interfaceName
+        if (_serverInfo.value.status == ServerStatus.RUNNING) {
+            stopServer()
+            startServer()
+        }
+    }
 
     @Synchronized
     fun startServer(): Boolean {
@@ -30,7 +42,8 @@ class DlnaServerEngine @Inject constructor(
 
         _serverInfo.value = _serverInfo.value.copy(status = ServerStatus.STARTING)
 
-        val netIf = NetworkUtils.getActiveNetworkInterface()
+        val targetName = _selectedInterface.value
+        val netIf = NetworkUtils.getNetworkInterfaceByName(targetName)
         if (netIf == null) {
             _serverInfo.value = DlnaServerInfo(
                 status = ServerStatus.ERROR,

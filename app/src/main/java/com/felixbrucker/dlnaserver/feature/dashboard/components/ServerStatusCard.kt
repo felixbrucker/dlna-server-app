@@ -25,13 +25,24 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.felixbrucker.dlnaserver.core.model.NetworkInterfaceInfo
+import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -46,6 +57,9 @@ import com.felixbrucker.dlnaserver.core.model.ServerStatus
 @Composable
 fun ServerStatusCard(
     serverInfo: DlnaServerInfo,
+    availableNetworkInterfaces: List<NetworkInterfaceInfo>,
+    selectedNetworkInterface: String,
+    onNetworkInterfaceSelected: (String) -> Unit,
     onToggleServer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -56,7 +70,81 @@ fun ServerStatusCard(
         Column(modifier = Modifier.padding(16.dp)) {
             ServerStatusHeader(serverInfo = serverInfo, onToggleServer = onToggleServer)
             Spacer(modifier = Modifier.height(12.dp))
+            NetworkInterfaceDropdown(
+                availableInterfaces = availableNetworkInterfaces,
+                selectedInterface = selectedNetworkInterface,
+                onInterfaceSelected = onNetworkInterfaceSelected
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             ServerNetworkDetails(serverInfo = serverInfo)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NetworkInterfaceDropdown(
+    availableInterfaces: List<NetworkInterfaceInfo>,
+    selectedInterface: String,
+    onInterfaceSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val selectedLabel = remember(selectedInterface, availableInterfaces) {
+        if (selectedInterface == "auto") {
+            val active = NetworkUtils.getActiveNetworkInterface()
+            if (active != null) "Auto (${active.displayName} - ${active.ipAddress})" else "Auto (Active interface)"
+        } else {
+            val matched = availableInterfaces.firstOrNull { it.name == selectedInterface }
+            if (matched != null) "${matched.displayName} (${matched.ipAddress})" else selectedInterface
+        }
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Network Interface") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Wifi,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            val active = NetworkUtils.getActiveNetworkInterface()
+            val autoText = if (active != null) "Auto (${active.displayName} - ${active.ipAddress})" else "Auto (Active interface)"
+            DropdownMenuItem(
+                text = { Text(autoText) },
+                onClick = {
+                    onInterfaceSelected("auto")
+                    expanded = false
+                }
+            )
+            availableInterfaces.forEach { iface ->
+                DropdownMenuItem(
+                    text = { Text("${iface.displayName} (${iface.ipAddress})") },
+                    onClick = {
+                        onInterfaceSelected(iface.name)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }

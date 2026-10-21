@@ -5,17 +5,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.felixbrucker.dlnaserver.core.designsystem.theme.DlnaServerTheme
 import com.felixbrucker.dlnaserver.feature.dashboard.DashboardScreen
 import com.felixbrucker.dlnaserver.feature.dashboard.DashboardViewModel
+import com.felixbrucker.dlnaserver.feature.logs.LogViewerScreen
 import com.felixbrucker.dlnaserver.feature.settings.SettingsScreen
 import com.felixbrucker.dlnaserver.feature.settings.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,21 +40,32 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var currentScreen by remember { mutableStateOf("dashboard") }
+                    val navController = rememberNavController()
 
-                    when (currentScreen) {
-                        "settings" -> {
-                            SettingsScreen(
-                                viewModel = settingsViewModel,
-                                onNavigateBack = {
-                                    currentScreen = "dashboard"
-                                }
-                            )
-                        }
-                        else -> {
+                    NavHost(
+                        navController = navController,
+                        startDestination = "dashboard",
+                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+                        exitTransition = { slideOutHorizontally(targetOffsetX = { -it }) + fadeOut() },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) + fadeIn() },
+                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
+                    ) {
+                        composable("dashboard") {
                             DashboardScreen(
                                 viewModel = dashboardViewModel,
-                                onNavigateToSettings = { currentScreen = "settings" }
+                                onNavigateToSettings = { navController.navigate("settings") }
+                            )
+                        }
+                        composable("settings") {
+                            SettingsScreen(
+                                viewModel = settingsViewModel,
+                                onNavigateBack = { navController.popBackStack() },
+                                onNavigateToLogViewer = { navController.navigate("log_viewer") }
+                            )
+                        }
+                        composable("log_viewer") {
+                            LogViewerScreen(
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
                     }
