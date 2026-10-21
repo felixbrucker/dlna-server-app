@@ -64,6 +64,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            //noinspection ChromeOsAbiSupport
+            include("arm64-v8a")
+            isUniversalApk = false
+        }
+    }
 }
 
 ksp {
@@ -114,7 +124,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.ffmpeg.kit.full)
+    implementation(libs.ffmpeg.kit.min.gpl)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
