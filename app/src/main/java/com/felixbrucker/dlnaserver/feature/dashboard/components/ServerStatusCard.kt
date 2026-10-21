@@ -285,27 +285,7 @@ private fun ServerPowerButton(
 @Composable
 private fun ServerNetworkDetails(serverInfo: DlnaServerInfo) {
     Column {
-        NetworkInterfaceRow(boundInterface = serverInfo.boundInterface, ipAddress = serverInfo.ipAddress)
-        Spacer(modifier = Modifier.height(4.dp))
         ConnectedDevicesRow(count = serverInfo.connectedDeviceCount)
-    }
-}
-
-@Composable
-private fun NetworkInterfaceRow(boundInterface: String, ipAddress: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = Icons.Default.Wifi,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = "$boundInterface ($ipAddress)",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
