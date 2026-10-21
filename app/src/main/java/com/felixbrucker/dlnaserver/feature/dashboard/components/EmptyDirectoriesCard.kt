@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun EmptyDirectoriesCard(
-    onAddDirectoryClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAddDirectoryClick: (() -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth()

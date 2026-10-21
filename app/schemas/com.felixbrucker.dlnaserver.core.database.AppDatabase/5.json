@@ -1,0 +1,151 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "4e165f47c930affb1b2d43d61d2bdf2d",
+    "entities": [
+      {
+        "tableName": "shared_directories",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `path` TEXT NOT NULL, `displayName` TEXT NOT NULL, `isEnabled` INTEGER NOT NULL, `addedTimestamp` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isEnabled",
+            "columnName": "isEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addedTimestamp",
+            "columnName": "addedTimestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_shared_directories_path",
+            "unique": true,
+            "columnNames": [
+              "path"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_shared_directories_path` ON `${TABLE_NAME}` (`path`)"
+          }
+        ]
+      },
+      {
+        "tableName": "transcode_jobs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `inputFilePath` TEXT NOT NULL, `outputFilePath` TEXT NOT NULL, `status` TEXT NOT NULL, `errorMessage` TEXT, `totalDurationMs` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `isSource10Bit` INTEGER NOT NULL DEFAULT 0, `bitDepthChange` TEXT, `resolutionChange` TEXT, `videoCodecChange` TEXT, `audioCodecChange` TEXT, `subtitleCodecChange` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputFilePath",
+            "columnName": "inputFilePath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outputFilePath",
+            "columnName": "outputFilePath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "errorMessage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "totalDurationMs",
+            "columnName": "totalDurationMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSource10Bit",
+            "columnName": "isSource10Bit",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "bitDepthChange",
+            "columnName": "bitDepthChange",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resolutionChange",
+            "columnName": "resolutionChange",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "videoCodecChange",
+            "columnName": "videoCodecChange",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "audioCodecChange",
+            "columnName": "audioCodecChange",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "subtitleCodecChange",
+            "columnName": "subtitleCodecChange",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4e165f47c930affb1b2d43d61d2bdf2d')"
+    ]
+  }
+}

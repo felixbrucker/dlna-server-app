@@ -3,22 +3,23 @@ package com.felixbrucker.dlnaserver.core.util
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.os.Build
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
 
-fun Int.is10BitProfileFor(mimeType: String?): Boolean {
-    if (mimeType.isNullOrBlank()) return false
-    return when (mimeType.lowercase()) {
-        "video/hevc" -> this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
+fun Int.is10BitProfileFor(codec: String): Boolean {
+    val isApi29 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    return when (codec.lowercase()) {
+        "x265" -> this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 ||
             this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
-            this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
-        "video/avc" -> this == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
-        "video/x-vnd.on2.vp9" -> this == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
+            (isApi29 && this == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus)
+        "x264" -> this == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh10
+        "VP9" -> this == MediaCodecInfo.CodecProfileLevel.VP9Profile2 ||
             this == MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR ||
             this == MediaCodecInfo.CodecProfileLevel.VP9Profile3 ||
             this == MediaCodecInfo.CodecProfileLevel.VP9Profile3HDR
-        "video/av01" -> this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
+        "AV1" -> isApi29 && (this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10 ||
             this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10 ||
-            this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus
+            this == MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10Plus)
         else -> false
     }
 }
@@ -29,15 +30,17 @@ object HardwareCodecUtils {
             val codecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
             val infos = codecList.codecInfos ?: return false
 
-            infos.any { info ->
-                info != null && info.isEncoder && supportsMimeType(info, mimeType) && isHardwareAccelerated(info)
-            }
+            infos.any { info -> info.isHardwareAcceleratedEncoderForMimeType(mimeType) }
         } catch (_: Throwable) {
             false
         }
     }
 
-    fun hasHardwareEncoderSupport(option: TranscodeOption): Boolean {
+    fun hasHardwareEncoderSupport(option: VideoTranscodeOption): Boolean {
+        return hasHardwareEncoderSupport(option.mimeType)
+    }
+
+    fun hasHardwareEncoderSupport(option: AudioTranscodeOption): Boolean {
         return hasHardwareEncoderSupport(option.mimeType)
     }
 
@@ -50,7 +53,7 @@ object HardwareCodecUtils {
             val infos = codecList.codecInfos ?: return false
 
             infos.any { info ->
-                info != null && info.isEncoder && supportsMimeType(info, mimeType) && isHardwareAccelerated(info) && supports10Bit(info, mimeType)
+                info.isHardwareAcceleratedEncoderForMimeType(mimeType) && info.supports10Bit(mimeType)
             }
         } catch (_: Throwable) {
             false
@@ -60,42 +63,42 @@ object HardwareCodecUtils {
     /**
      * Note: This method is currently unused until FFmpeg provides 10-bit support for MediaCodec encoders.
      */
-    fun has10BitEncoderSupport(option: TranscodeOption): Boolean {
+    fun has10BitEncoderSupport(option: VideoTranscodeOption): Boolean {
         return has10BitEncoderSupport(option.mimeType)
     }
+}
 
-    private fun supports10Bit(info: MediaCodecInfo, mimeType: String): Boolean {
-        return try {
-            val caps = info.getCapabilitiesForType(mimeType) ?: return false
-            val profileLevels = caps.profileLevels ?: emptyArray()
-            val has10BitProfile = profileLevels.any { pl ->
-                pl.profile.is10BitProfileFor(mimeType)
-            }
-            val colorFormats = caps.colorFormats ?: intArrayOf()
-            val has10BitColorFormat = colorFormats.any { cf ->
-                cf == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010 || cf == 0x7F000001
-            }
-            has10BitProfile || has10BitColorFormat
-        } catch (_: Throwable) {
-            false
-        }
+fun MediaCodecInfo?.isHardwareAcceleratedEncoderForMimeType(mimeType: String): Boolean {
+    return this != null && isEncoder && supportsMimeType(mimeType) && isHardwareAcceleratedCompat()
+}
+
+fun MediaCodecInfo.supportsMimeType(mimeType: String): Boolean {
+    return supportedTypes?.any { it.equals(mimeType, ignoreCase = true) } == true
+}
+
+fun MediaCodecInfo.isHardwareAcceleratedCompat(): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        isHardwareAccelerated
+    } else {
+        !name.startsWith("OMX.google.", ignoreCase = true) &&
+            !name.startsWith("c2.android.", ignoreCase = true)
     }
+}
 
-    private fun supportsMimeType(info: MediaCodecInfo, mimeType: String): Boolean {
-        return try {
-            info.supportedTypes?.any { it.equals(mimeType, ignoreCase = true) } == true
-        } catch (_: Throwable) {
-            false
+fun MediaCodecInfo.supports10Bit(mimeType: String): Boolean {
+    return try {
+        val caps = getCapabilitiesForType(mimeType) ?: return false
+        val profileLevels = caps.profileLevels ?: emptyArray()
+        val has10BitProfile = profileLevels.any { pl ->
+            pl.profile.is10BitProfileFor(mimeType)
         }
-    }
-
-    private fun isHardwareAccelerated(info: MediaCodecInfo): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            info.isHardwareAccelerated
-        } else {
-            val name = info.name
-            !name.startsWith("OMX.google.", ignoreCase = true) &&
-                !name.startsWith("c2.android.", ignoreCase = true)
+        val colorFormats = caps.colorFormats ?: intArrayOf()
+        val isApi33 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        val has10BitColorFormat = colorFormats.any { cf ->
+            cf == 0x7F000001 || (isApi33 && cf == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010)
         }
+        has10BitProfile || has10BitColorFormat
+    } catch (_: Throwable) {
+        false
     }
 }

@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun PermissionCard(
-    onRequestPermission: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRequestPermission: () -> Unit = {}
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),

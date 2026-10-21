@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.datastore.AppSettingsRepository
 import com.felixbrucker.dlnaserver.core.datastore.TranscodeSettings
+import com.felixbrucker.dlnaserver.core.model.AudioTranscodeOption
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
-import com.felixbrucker.dlnaserver.core.model.TranscodeOption
+import com.felixbrucker.dlnaserver.core.model.SubtitleTranscodeOption
 import com.felixbrucker.dlnaserver.core.model.TranscodeResolution
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodeOption
+import com.felixbrucker.dlnaserver.core.model.VideoTranscodePreset
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,8 +22,9 @@ import javax.inject.Inject
 data class SettingsUiState(
     val transcodeSettings: TranscodeSettings = TranscodeSettings(),
     val sharedDirectories: List<SharedDirectory> = emptyList(),
-    val supportedOptions: List<TranscodeOption> = emptyList(),
-    val tenBitSupportMap: Map<TranscodeOption, Boolean> = emptyMap()
+    val supportedVideoOptions: List<VideoTranscodeOption> = emptyList(),
+    val supportedAudioOptions: List<AudioTranscodeOption> = emptyList(),
+    val tenBitSupportMap: Map<VideoTranscodeOption, Boolean> = emptyMap()
 )
 
 @HiltViewModel
@@ -29,12 +33,16 @@ class SettingsViewModel @Inject constructor(
     private val sharedDirectoryRepository: SharedDirectoryRepository
 ) : ViewModel() {
 
-    private val supportedOptionsList: List<TranscodeOption> by lazy {
-        TranscodeOption.entries.filter { it.isHardwareSupported }
+    private val supportedVideoOptionsList: List<VideoTranscodeOption> by lazy {
+        VideoTranscodeOption.entries.filter { it.isHardwareSupported }
     }
 
-    private val tenBitSupportMapLazy: Map<TranscodeOption, Boolean> by lazy {
-        TranscodeOption.entries.associateWith { it.is10BitSupported }
+    private val supportedAudioOptionsList: List<AudioTranscodeOption> by lazy {
+        AudioTranscodeOption.entries.filter { it.isHardwareSupported }
+    }
+
+    private val tenBitSupportMapLazy: Map<VideoTranscodeOption, Boolean> by lazy {
+        VideoTranscodeOption.entries.associateWith { it.is10BitSupported }
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -44,27 +52,35 @@ class SettingsViewModel @Inject constructor(
         SettingsUiState(
             transcodeSettings = settings,
             sharedDirectories = directories,
-            supportedOptions = supportedOptionsList,
+            supportedVideoOptions = supportedVideoOptionsList,
+            supportedAudioOptions = supportedAudioOptionsList,
             tenBitSupportMap = tenBitSupportMapLazy
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsUiState(
-            supportedOptions = supportedOptionsList,
+            supportedVideoOptions = supportedVideoOptionsList,
+            supportedAudioOptions = supportedAudioOptionsList,
             tenBitSupportMap = tenBitSupportMapLazy
         )
     )
 
-    fun onTranscodeOptionSelected(option: TranscodeOption) {
+    fun onVideoTranscodeOptionSelected(option: VideoTranscodeOption) {
         viewModelScope.launch {
-            appSettingsRepository.setTranscodeOption(option)
+            appSettingsRepository.setVideoTranscodeOption(option)
         }
     }
 
     fun onResolutionSelected(resolution: TranscodeResolution) {
         viewModelScope.launch {
             appSettingsRepository.setTranscodeResolution(resolution)
+        }
+    }
+
+    fun onVideoTranscodePresetSelected(preset: VideoTranscodePreset) {
+        viewModelScope.launch {
+            appSettingsRepository.setVideoTranscodePreset(preset)
         }
     }
 
@@ -77,6 +93,18 @@ class SettingsViewModel @Inject constructor(
     fun onCrfChanged(crf: Int) {
         viewModelScope.launch {
             appSettingsRepository.setCrf(crf)
+        }
+    }
+
+    fun onAudioTranscodeOptionSelected(option: AudioTranscodeOption) {
+        viewModelScope.launch {
+            appSettingsRepository.setAudioTranscodeOption(option)
+        }
+    }
+
+    fun onSubtitleTranscodeOptionSelected(option: SubtitleTranscodeOption) {
+        viewModelScope.launch {
+            appSettingsRepository.setSubtitleTranscodeOption(option)
         }
     }
 

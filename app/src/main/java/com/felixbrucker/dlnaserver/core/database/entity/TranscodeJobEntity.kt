@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
@@ -15,9 +16,13 @@ data class TranscodeJobEntity(
     val errorMessage: String? = null,
     val totalDurationMs: Long = 0L,
     val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0")
+    val isSource10Bit: Boolean = false,
     val bitDepthChange: String? = null,
     val resolutionChange: String? = null,
-    val codecChange: String? = null
+    val videoCodecChange: String? = null,
+    val audioCodecChange: String? = null,
+    val subtitleCodecChange: String? = null
 ) {
     val inputFile: File get() = File(inputFilePath)
     val outputFile: File get() = File(outputFilePath)

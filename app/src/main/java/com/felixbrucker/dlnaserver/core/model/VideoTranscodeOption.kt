@@ -2,13 +2,20 @@ package com.felixbrucker.dlnaserver.core.model
 
 import com.felixbrucker.dlnaserver.core.util.HardwareCodecUtils
 
-enum class TranscodeOption(
+enum class VideoTranscodeOption(
     val id: String,
     val codecName: String,
     val mimeType: String,
     val ffmpegEncoder: String,
     val isHardware: Boolean
 ) {
+    KEEP(
+        id = "KEEP",
+        codecName = "Keep original",
+        mimeType = "",
+        ffmpegEncoder = "copy",
+        isHardware = false
+    ),
     X264_SW(
         id = "X264_SW",
         codecName = "x264",
@@ -74,18 +81,19 @@ enum class TranscodeOption(
         }
     }
 
+    // HW mediacodec encoders don't support 10bit in ffmpeg
     val is10BitSupported: Boolean = !isHardware
 
     val supportsPresets: Boolean get() = this == X264_SW || this == X265_SW || this == AV1_SW
 
     companion object {
-        fun getDefaultOption(): TranscodeOption {
+        fun getDefaultOption(): VideoTranscodeOption {
             val hwOrder = listOf(X264_HW, X265_HW, AV1_HW, VP9_HW)
             return hwOrder.firstOrNull { it.isHardwareSupported } ?: X265_SW
         }
 
-        fun fromId(id: String): TranscodeOption {
-            return entries.firstOrNull { it.id == id } ?: getDefaultOption()
+        fun fromId(id: String): VideoTranscodeOption {
+            return entries.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: getDefaultOption()
         }
     }
 }

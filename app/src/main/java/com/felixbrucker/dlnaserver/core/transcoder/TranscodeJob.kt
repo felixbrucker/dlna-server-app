@@ -20,7 +20,10 @@ data class TranscodeJob(
     val etaSeconds: Long = 0L,
     val errorMessage: String? = null,
     val totalDurationMs: Long = 0L,
+    val isSource10Bit: Boolean = false,
     val bitDepthChange: String? = null,
     val resolutionChange: String? = null,
-    val codecChange: String? = null
+    val videoCodecChange: String? = null,
+    val audioCodecChange: String? = null,
+    val subtitleCodecChange: String? = null
 )

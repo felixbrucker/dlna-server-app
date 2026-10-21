@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -90,7 +91,7 @@ class TranscodeService : Service() {
                 val formattedEta = if (avgEtaSeconds > 0) {
                     val m = avgEtaSeconds / 60
                     val s = avgEtaSeconds % 60
-                    String.format("%02d:%02d", m, s)
+                    String.format(Locale.getDefault(), "%02d:%02d", m, s)
                 } else "--:--"
 
                 val subText = "$formattedEta remaining"
