@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.ln
 import kotlin.math.pow
@@ -176,7 +177,7 @@ class DashboardViewModel @Inject constructor(
                                 val isEnqueuedOrActive = activeJobPaths.contains(file.absolutePath)
                                 val isTranscodeDisabled = (transcodedFile?.exists() == true) || isEnqueuedOrActive
 
-                                val metadata = MediaMetadataUtils.extractMetadata(file)
+                                val metadata = MediaMetadataUtils.extractGenericMetadata(file)
                                 val durationStr = metadata.durationFormatted ?: "--:--"
                                 val resStr = metadata.resolution ?: "Unknown"
                                 val sizeStr = formatFileSize(file.length())
@@ -205,6 +206,6 @@ class DashboardViewModel @Inject constructor(
         if (bytes < 1024) return "$bytes B"
         val exp = (ln(bytes.toDouble()) / ln(1024.0)).toInt()
         val pre = "KMGTPE"[exp - 1]
-        return String.format("%.1f %sB", bytes / 1024.0.pow(exp.toDouble()), pre)
+        return String.format(Locale.getDefault(), "%.1f %sB", bytes / 1024.0.pow(exp.toDouble()), pre)
     }
 }

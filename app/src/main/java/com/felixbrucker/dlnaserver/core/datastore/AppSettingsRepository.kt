@@ -16,13 +16,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class TranscodeSettings(
-    val option: VideoTranscodeOption = VideoTranscodeOption.getDefaultOption(),
+    val videoTranscodeOption: VideoTranscodeOption = VideoTranscodeOption.getDefaultOption(),
     val resolution: TranscodeResolution = TranscodeResolution.KEEP,
     val preset: VideoTranscodePreset = VideoTranscodePreset.getDefaultPreset(),
     val bitrateMb: Int = 3,
     val crf: Int = 20,
-    val audioOption: AudioTranscodeOption = AudioTranscodeOption.getDefaultOption(),
-    val subtitleOption: SubtitleTranscodeOption = SubtitleTranscodeOption.getDefaultOption(),
+    val audioTranscodeOption: AudioTranscodeOption = AudioTranscodeOption.getDefaultOption(),
+    val subtitleTranscodeOption: SubtitleTranscodeOption = SubtitleTranscodeOption.getDefaultOption(),
     val maxParallelJobs: Int = 1
 )
 
@@ -59,13 +59,13 @@ class AppSettingsRepository @Inject constructor(
         val maxJobs = preferences[PreferenceKeys.MAX_PARALLEL_JOBS] ?: 1
 
         TranscodeSettings(
-            option = option,
+            videoTranscodeOption = option,
             resolution = resolution,
             preset = preset,
             bitrateMb = bitrate,
             crf = crf,
-            audioOption = audioOption,
-            subtitleOption = subtitleOption,
+            audioTranscodeOption = audioOption,
+            subtitleTranscodeOption = subtitleOption,
             maxParallelJobs = maxJobs
         )
     }

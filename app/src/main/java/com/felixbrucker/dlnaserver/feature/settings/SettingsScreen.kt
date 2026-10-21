@@ -236,7 +236,6 @@ private fun TranscodingOptionsCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun VideoOptionsSection(
     uiState: SettingsUiState,
@@ -254,7 +253,7 @@ private fun VideoOptionsSection(
             color = MaterialTheme.colorScheme.primary
         )
 
-        val currentOption = uiState.transcodeSettings.option
+        val currentOption = uiState.transcodeSettings.videoTranscodeOption
 
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -373,7 +372,7 @@ private fun VideoEncoderDropdown(
         onExpandedChange = { codecExpanded = !codecExpanded },
         modifier = modifier
     ) {
-        val currentOption = uiState.transcodeSettings.option
+        val currentOption = uiState.transcodeSettings.videoTranscodeOption
         val is10BitSupported = uiState.tenBitSupportMap[currentOption] ?: true
         val selectedLabel = if (currentOption == VideoTranscodeOption.KEEP) {
             "Keep original"
@@ -507,7 +506,7 @@ private fun AudioEncoderDropdown(
         onExpandedChange = { expanded = !expanded },
         modifier = modifier
     ) {
-        val current = uiState.transcodeSettings.audioOption
+        val current = uiState.transcodeSettings.audioTranscodeOption
         val selectedText = if (current == AudioTranscodeOption.KEEP) {
             "Keep original"
         } else {
@@ -555,7 +554,7 @@ private fun SubtitleEncoderDropdown(
         modifier = modifier
     ) {
         OutlinedTextField(
-            value = uiState.transcodeSettings.subtitleOption.codecName,
+            value = uiState.transcodeSettings.subtitleTranscodeOption.codecName,
             onValueChange = {},
             readOnly = true,
             label = { Text("Subtitle Encoder") },

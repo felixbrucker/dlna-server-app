@@ -5,7 +5,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -65,6 +64,7 @@ import com.felixbrucker.dlnaserver.core.util.PermissionUtils
 import com.felixbrucker.dlnaserver.feature.dashboard.components.ClientActivityCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.PermissionCard
 import com.felixbrucker.dlnaserver.feature.dashboard.components.ServerStatusCard
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -176,11 +176,9 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (!uiState.permissionGranted) {
-                PermissionCard(
-                    onRequestPermission = {
-                        permissionLauncher.launch(PermissionUtils.getRequiredPermissions())
-                    }
-                )
+                PermissionCard {
+                    permissionLauncher.launch(PermissionUtils.getRequiredPermissions())
+                }
             } else {
                 ServerStatusCard(
                     serverInfo = uiState.serverInfo,
@@ -200,7 +198,7 @@ private fun calculateTotalEtaString(jobs: List<TranscodeJob>): String {
     val avgSeconds = (activeEtas.sum().toDouble() / activeEtas.size.toDouble()).toLong()
     val m = avgSeconds / 60
     val s = avgSeconds % 60
-    return String.format("%02d:%02d", m, s)
+    return String.format(Locale.getDefault(), "%02d:%02d", m, s)
 }
 
 @Composable

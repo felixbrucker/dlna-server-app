@@ -4,8 +4,10 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import com.arthenica.ffmpegkit.FFprobeKit
 import java.io.File
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
-data class ExtractedMediaMetadata(
+data class GenericMediaMetadata(
     val durationFormatted: String? = null,
     val resolution: String? = null,
     val bitrate: Long? = null,
@@ -13,7 +15,6 @@ data class ExtractedMediaMetadata(
     val artist: String? = null,
     val album: String? = null,
     val genre: String? = null,
-    val is10Bit: Boolean = false
 )
 
 data class VideoTrack(
@@ -31,16 +32,17 @@ data class SubtitleTrack(
     val codec: String
 )
 
-data class MediaTrackMetadata(
+data class VideoMetadata(
     val videoTracks: List<VideoTrack> = emptyList(),
     val audioTracks: List<AudioTrack> = emptyList(),
-    val subtitleTracks: List<SubtitleTrack> = emptyList()
+    val subtitleTracks: List<SubtitleTrack> = emptyList(),
+    val duration: Duration? = null,
 )
 
 object MediaMetadataUtils {
 
-    fun extractMetadata(file: File): ExtractedMediaMetadata {
-        if (!file.exists() || !file.isFile) return ExtractedMediaMetadata()
+    fun extractGenericMetadata(file: File): GenericMediaMetadata {
+        if (!file.exists() || !file.isFile) return GenericMediaMetadata()
 
         val retriever = MediaMetadataRetriever()
         return try {
@@ -65,10 +67,7 @@ object MediaMetadataUtils {
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
             val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
 
-            val trackMetadata = extractTrackMetadata(file)
-            val is10Bit = trackMetadata.videoTracks.firstOrNull()?.is10Bit ?: false
-
-            ExtractedMediaMetadata(
+            GenericMediaMetadata(
                 durationFormatted = durationStr,
                 resolution = resolutionStr,
                 bitrate = bitrate,
@@ -76,10 +75,9 @@ object MediaMetadataUtils {
                 artist = artist,
                 album = album,
                 genre = genre,
-                is10Bit = is10Bit
             )
         } catch (_: Exception) {
-            ExtractedMediaMetadata()
+            GenericMediaMetadata()
         } finally {
             try {
                 retriever.release()
@@ -88,18 +86,20 @@ object MediaMetadataUtils {
         }
     }
 
-    fun extractTrackMetadata(file: File): MediaTrackMetadata {
-        if (!file.exists() || !file.isFile) return MediaTrackMetadata()
+    fun extractVideoMetadata(file: File): VideoMetadata {
+        if (!file.exists() || !file.isFile) return VideoMetadata()
 
         return try {
             val infoSession = FFprobeKit.getMediaInformation(file.absolutePath)
-            val streams = infoSession?.mediaInformation?.streams ?: emptyList()
+            val mediaInformation = infoSession?.mediaInformation ?: return VideoMetadata()
+
+            val duration = mediaInformation.duration.toDouble().seconds
+            val streams = mediaInformation.streams ?: emptyList()
             val videoTracks = mutableListOf<VideoTrack>()
             val audioTracks = mutableListOf<AudioTrack>()
             val subtitleTracks = mutableListOf<SubtitleTrack>()
 
             for (stream in streams) {
-                if (stream == null) continue
                 val type = stream.type ?: continue
                 val codec = stream.codec ?: continue
 
@@ -110,10 +110,9 @@ object MediaMetadataUtils {
                         else -> codec.uppercase()
                     }
                     val profile = stream.getNumberProperty("profile")?.toInt() ?: 0
-                    val pixFmt = stream.getStringProperty("pix_fmt") ?: stream.format ?: ""
-                    val is10Bit = pixFmt == "yuv420p10le" || profile.is10BitProfileFor(videoCodec)
-                    val width = stream.width?.toInt() ?: stream.getNumberProperty("width")?.toInt() ?: 0
-                    val height = stream.height?.toInt() ?: stream.getNumberProperty("height")?.toInt() ?: 0
+                    val is10Bit = stream.format == "yuv420p10le" || profile.is10BitProfileFor(videoCodec)
+                    val width = stream.width?.toInt() ?: 0
+                    val height = stream.height?.toInt() ?: 0
 
                     videoTracks.add(VideoTrack(videoCodec, width, height, is10Bit))
                 } else if (type.equals("audio", ignoreCase = true)) {
@@ -134,28 +133,14 @@ object MediaMetadataUtils {
                 }
             }
 
-            MediaTrackMetadata(
+            VideoMetadata(
                 videoTracks = videoTracks,
                 audioTracks = audioTracks,
-                subtitleTracks = subtitleTracks
+                subtitleTracks = subtitleTracks,
+                duration = duration,
             )
         } catch (_: Throwable) {
-            MediaTrackMetadata()
-        }
-    }
-
-    fun getVideoDimensions(file: File): Pair<Int, Int>? {
-        if (!file.exists() || !file.isFile) return null
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(file.absolutePath)
-            val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
-            val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
-            if (w != null && h != null && w > 0 && h > 0) Pair(w, h) else null
-        } catch (_: Throwable) {
-            null
-        } finally {
-            try { retriever.release() } catch (_: Throwable) {}
+            VideoMetadata()
         }
     }
 

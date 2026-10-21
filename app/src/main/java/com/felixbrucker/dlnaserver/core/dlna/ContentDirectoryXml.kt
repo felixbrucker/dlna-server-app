@@ -378,7 +378,7 @@ object ContentDirectoryXml {
         val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
         val modDate = isoDateFormat.format(Date(file.lastModified()))
 
-        val metadata = MediaMetadataUtils.extractMetadata(file)
+        val metadata = MediaMetadataUtils.extractGenericMetadata(file)
 
         val dlnaPnPart = if (dlnaProfile.isNotEmpty()) "DLNA.ORG_PN=$dlnaProfile;" else ""
         val protocolInfo = "http-get:*:$mimeType:${dlnaPnPart}DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"

@@ -81,6 +81,7 @@ enum class VideoTranscodeOption(
         }
     }
 
+    // HW mediacodec encoders don't support 10bit in ffmpeg
     val is10BitSupported: Boolean = !isHardware
 
     val supportsPresets: Boolean get() = this == X264_SW || this == X265_SW || this == AV1_SW

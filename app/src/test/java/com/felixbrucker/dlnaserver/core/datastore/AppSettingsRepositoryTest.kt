@@ -80,7 +80,7 @@ class AppSettingsRepositoryTest {
         repository.setAudioTranscodeOption(option)
 
         val result = repository.transcodeSettings.first()
-        assertEquals(AudioTranscodeOption.AC3_SW, result.audioOption)
+        assertEquals(AudioTranscodeOption.AC3_SW, result.audioTranscodeOption)
     }
 
     @Test
@@ -90,6 +90,6 @@ class AppSettingsRepositoryTest {
         repository.setSubtitleTranscodeOption(option)
 
         val result = repository.transcodeSettings.first()
-        assertEquals(SubtitleTranscodeOption.SRT, result.subtitleOption)
+        assertEquals(SubtitleTranscodeOption.SRT, result.subtitleTranscodeOption)
     }
 }

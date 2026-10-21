@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.dlna
 
+import android.util.Log
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
@@ -357,6 +358,8 @@ class HttpMediaServer @Inject constructor(
         if (isHeadOnly) {
             return
         }
+
+        Log.d("HttpMediaServer", "range=$rangeHeader, file=${file.name}")
 
         FileInputStream(file).use { fileStream ->
             if (start > 0) {
