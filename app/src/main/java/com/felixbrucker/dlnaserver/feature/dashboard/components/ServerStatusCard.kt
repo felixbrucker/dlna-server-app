@@ -122,10 +122,10 @@ private fun NetworkInterfaceDropdown(
     val selectedLabel = remember(selectedInterface, availableInterfaces) {
         if (selectedInterface == "auto") {
             val active = NetworkUtils.getActiveNetworkInterface()
-            if (active != null) "Auto (${active.displayName})" else "Auto"
+            if (active != null) "Auto (${active.displayName} - ${active.ipAddress})" else "Auto (Active interface)"
         } else {
             val matched = availableInterfaces.firstOrNull { it.name == selectedInterface }
-            if (matched != null) matched.displayName else selectedInterface
+            if (matched != null) "${matched.displayName} (${matched.ipAddress})" else selectedInterface
         }
     }
 
@@ -149,7 +149,6 @@ private fun NetworkInterfaceDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             singleLine = true,
             modifier = Modifier
-                .width(180.dp)
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
         ExposedDropdownMenu(

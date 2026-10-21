@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.felixbrucker.dlnaserver.core.designsystem.theme.DlnaServerTheme
+import com.felixbrucker.dlnaserver.core.extensions.popBackStackSafely
 import com.felixbrucker.dlnaserver.feature.dashboard.DashboardScreen
 import com.felixbrucker.dlnaserver.feature.dashboard.DashboardViewModel
 import com.felixbrucker.dlnaserver.feature.logs.LogViewerScreen
@@ -45,19 +46,27 @@ class MainActivity : ComponentActivity() {
                         composable("dashboard") {
                             DashboardScreen(
                                 viewModel = dashboardViewModel,
-                                onNavigateToSettings = { navController.navigate("settings") }
+                                onNavigateToSettings = {
+                                    navController.navigate("settings") {
+                                        launchSingleTop = true
+                                    }
+                                }
                             )
                         }
                         composable("settings") {
                             SettingsScreen(
                                 viewModel = settingsViewModel,
-                                onNavigateBack = { navController.popBackStack() },
-                                onNavigateToLogViewer = { navController.navigate("log_viewer") }
+                                onNavigateBack = { navController.popBackStackSafely() },
+                                onNavigateToLogViewer = {
+                                    navController.navigate("log_viewer") {
+                                        launchSingleTop = true
+                                    }
+                                }
                             )
                         }
                         composable("log_viewer") {
                             LogViewerScreen(
-                                onNavigateBack = { navController.popBackStack() }
+                                onNavigateBack = { navController.popBackStackSafely() }
                             )
                         }
                     }
