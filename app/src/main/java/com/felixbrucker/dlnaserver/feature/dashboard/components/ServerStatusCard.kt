@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,10 +90,11 @@ private fun ServerStatusHeader(
     onNetworkInterfaceSelected: (String) -> Unit,
     onToggleServer: () -> Unit
 ) {
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         ServerStatusBadge(status = serverInfo.status)
         Row(
@@ -104,7 +106,11 @@ private fun ServerStatusHeader(
                 selectedInterface = selectedNetworkInterface,
                 onInterfaceSelected = onNetworkInterfaceSelected
             )
-            ServerPowerButton(isRunning = serverInfo.status == ServerStatus.RUNNING, onToggleServer = onToggleServer)
+            ServerPowerButton(
+                isRunning = serverInfo.status == ServerStatus.RUNNING,
+                onToggleServer = onToggleServer,
+                modifier = Modifier.padding(top = 5.dp)
+            )
         }
     }
 }
@@ -138,7 +144,7 @@ private fun NetworkInterfaceDropdown(
             value = selectedLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Interface") },
+            label = { Text("Network Interface") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Wifi,
@@ -261,7 +267,8 @@ private fun PulsatingStatusDot(status: ServerStatus) {
 @Composable
 private fun ServerPowerButton(
     isRunning: Boolean,
-    onToggleServer: () -> Unit
+    onToggleServer: () -> Unit,
+    modifier: Modifier
 ) {
     val buttonColor by animateColorAsState(
         targetValue = if (isRunning) StatusGreen else MaterialTheme.colorScheme.primary,
@@ -270,7 +277,8 @@ private fun ServerPowerButton(
     Surface(
         onClick = onToggleServer,
         shape = CircleShape,
-        color = buttonColor
+        color = buttonColor,
+        modifier = modifier
     ) {
         Icon(
             imageVector = Icons.Default.PowerSettingsNew,

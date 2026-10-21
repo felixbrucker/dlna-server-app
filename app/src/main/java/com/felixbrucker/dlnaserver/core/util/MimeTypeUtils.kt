@@ -1,5 +1,6 @@
 package com.felixbrucker.dlnaserver.core.util
 
+import android.webkit.MimeTypeMap
 import java.io.File
 import java.util.Locale
 
@@ -8,6 +9,8 @@ object MimeTypeUtils {
     fun getMimeType(file: File): String {
         if (file.isDirectory) return "inode/directory"
         val extension = file.extension.lowercase(Locale.ROOT)
+        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+        if (mimeType != null) return mimeType
         return when (extension) {
             "mp4", "m4v" -> "video/mp4"
             "mkv" -> "video/x-matroska"

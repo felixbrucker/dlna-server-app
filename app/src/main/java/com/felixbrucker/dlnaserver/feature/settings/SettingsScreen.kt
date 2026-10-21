@@ -1,9 +1,7 @@
 package com.felixbrucker.dlnaserver.feature.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,11 +65,9 @@ import com.felixbrucker.dlnaserver.feature.dashboard.components.FolderPickerDial
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToLogViewer: () -> Unit = {},
+    onNavigateToLogViewer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler(onBack = onNavigateBack)
-
     val uiState by viewModel.uiState.collectAsState()
     var showFolderPicker by remember { mutableStateOf(false) }
 
