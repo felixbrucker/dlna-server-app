@@ -5,10 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,11 +40,7 @@ class MainActivity : ComponentActivity() {
 
                     NavHost(
                         navController = navController,
-                        startDestination = "dashboard",
-                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
-                        exitTransition = { slideOutHorizontally(targetOffsetX = { -it }) + fadeOut() },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) + fadeIn() },
-                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
+                        startDestination = "dashboard"
                     ) {
                         composable("dashboard") {
                             DashboardScreen(

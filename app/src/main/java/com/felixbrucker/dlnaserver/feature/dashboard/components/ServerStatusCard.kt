@@ -41,8 +41,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import com.felixbrucker.dlnaserver.core.model.NetworkInterfaceInfo
-import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -52,7 +50,9 @@ import androidx.compose.ui.unit.sp
 import com.felixbrucker.dlnaserver.core.designsystem.theme.StatusGreen
 import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
+import com.felixbrucker.dlnaserver.core.model.NetworkInterfaceInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
+import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 
 @Composable
 fun ServerStatusCard(
@@ -68,15 +68,43 @@ fun ServerStatusCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            ServerStatusHeader(serverInfo = serverInfo, onToggleServer = onToggleServer)
+            ServerStatusHeader(
+                serverInfo = serverInfo,
+                availableNetworkInterfaces = availableNetworkInterfaces,
+                selectedNetworkInterface = selectedNetworkInterface,
+                onNetworkInterfaceSelected = onNetworkInterfaceSelected,
+                onToggleServer = onToggleServer
+            )
             Spacer(modifier = Modifier.height(12.dp))
+            ServerNetworkDetails(serverInfo = serverInfo)
+        }
+    }
+}
+
+@Composable
+private fun ServerStatusHeader(
+    serverInfo: DlnaServerInfo,
+    availableNetworkInterfaces: List<NetworkInterfaceInfo>,
+    selectedNetworkInterface: String,
+    onNetworkInterfaceSelected: (String) -> Unit,
+    onToggleServer: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ServerStatusBadge(status = serverInfo.status)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             NetworkInterfaceDropdown(
                 availableInterfaces = availableNetworkInterfaces,
                 selectedInterface = selectedNetworkInterface,
                 onInterfaceSelected = onNetworkInterfaceSelected
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            ServerNetworkDetails(serverInfo = serverInfo)
+            ServerPowerButton(isRunning = serverInfo.status == ServerStatus.RUNNING, onToggleServer = onToggleServer)
         }
     }
 }
@@ -94,10 +122,10 @@ private fun NetworkInterfaceDropdown(
     val selectedLabel = remember(selectedInterface, availableInterfaces) {
         if (selectedInterface == "auto") {
             val active = NetworkUtils.getActiveNetworkInterface()
-            if (active != null) "Auto (${active.displayName} - ${active.ipAddress})" else "Auto (Active interface)"
+            if (active != null) "Auto (${active.displayName})" else "Auto"
         } else {
             val matched = availableInterfaces.firstOrNull { it.name == selectedInterface }
-            if (matched != null) "${matched.displayName} (${matched.ipAddress})" else selectedInterface
+            if (matched != null) matched.displayName else selectedInterface
         }
     }
 
@@ -110,7 +138,7 @@ private fun NetworkInterfaceDropdown(
             value = selectedLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Network Interface") },
+            label = { Text("Interface") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Wifi,
@@ -119,8 +147,9 @@ private fun NetworkInterfaceDropdown(
                 )
             },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            singleLine = true,
             modifier = Modifier
-                .fillMaxWidth()
+                .width(180.dp)
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
         ExposedDropdownMenu(
@@ -188,21 +217,6 @@ private fun ConnectedClientItem(client: ConnectedClientInfo) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline
         )
-    }
-}
-
-@Composable
-private fun ServerStatusHeader(
-    serverInfo: DlnaServerInfo,
-    onToggleServer: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ServerStatusBadge(status = serverInfo.status)
-        ServerPowerButton(isRunning = serverInfo.status == ServerStatus.RUNNING, onToggleServer = onToggleServer)
     }
 }
 
