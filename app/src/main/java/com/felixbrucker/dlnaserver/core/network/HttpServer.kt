@@ -68,25 +68,25 @@ data class HttpRequest(
 class HttpResponse(
     private val outputStream: OutputStream
 ) {
-    val headers = mutableMapOf<String, Pair<String, String>>()
+    val headers = mutableMapOf<String, String>()
 
     fun header(name: String, value: String) {
-        headers[name.lowercase()] = Pair(name, value)
+        headers[name.lowercase()] = value
     }
 
     internal fun writeHeader(status: HttpStatusCode, extraHeaders: Map<String, String> = emptyMap()) {
-        val merged = mutableMapOf<String, Pair<String, String>>()
+        val merged = mutableMapOf<String, String>()
         for ((key, value) in extraHeaders) {
-            merged[key.lowercase()] = Pair(key, value)
+            merged[key.lowercase()] = value
         }
-        for ((key, pair) in headers) {
-            merged[key] = pair
+        for ((key, value) in headers) {
+            merged[key.lowercase()] = value
         }
 
         val sb = StringBuilder()
         sb.append("HTTP/1.1 ").append(status.code).append(" ").append(status.description).append("\r\n")
-        for ((_, pair) in merged) {
-            sb.append(pair.first).append(": ").append(pair.second).append("\r\n")
+        for ((key, value) in merged) {
+            sb.append(key).append(": ").append(value).append("\r\n")
         }
         sb.append("\r\n")
         outputStream.write(sb.toString().toByteArray(Charsets.UTF_8))
@@ -101,7 +101,7 @@ class HttpCall(
 
     suspend fun respond(status: HttpStatusCode) {
         withContext(Dispatchers.IO) {
-            val extraHeaders = mapOf("Content-Length" to "0", "Connection" to "close")
+            val extraHeaders = mapOf("content-length" to "0", "connection" to "close")
             response.writeHeader(status, extraHeaders)
             outputStream.flush()
         }
@@ -115,9 +115,9 @@ class HttpCall(
         withContext(Dispatchers.IO) {
             val bytes = text.toByteArray(Charsets.UTF_8)
             val extraHeaders = mapOf(
-                "Content-Type" to contentType.toString(),
-                "Content-Length" to bytes.size.toString(),
-                "Connection" to "close"
+                "content-type" to contentType.toString(),
+                "content-length" to bytes.size.toString(),
+                "connection" to "close"
             )
             response.writeHeader(status, extraHeaders)
             outputStream.write(bytes)
@@ -133,8 +133,8 @@ class HttpCall(
     ) {
         withContext(Dispatchers.IO) {
             val extraHeaders = mapOf(
-                "Content-Type" to contentType.toString(),
-                "Content-Length" to contentLength.toString()
+                "content-type" to contentType.toString(),
+                "content-length" to contentLength.toString()
             )
             response.writeHeader(status, extraHeaders)
             streamBlock(outputStream)
