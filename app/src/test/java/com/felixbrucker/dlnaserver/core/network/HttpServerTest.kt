@@ -57,7 +57,7 @@ class HttpServerTest {
     fun testHttpGetRouteReturns200AndText() = runTest {
         server.get("/test") { call ->
             call.response.header("X-Custom-Header", "CustomValue")
-            call.respondText("hello world", ContentType.Text.Plain)
+            call.respondText("hello world", ContentType.Text.Xml)
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -86,7 +86,7 @@ class HttpServerTest {
     @Test
     fun testHttpPostRouteParsesBodyAndReturnsResponse() = runTest {
         server.post("/echo") { call ->
-            call.respondText("Received: ${call.request.body}", ContentType.Text.Plain)
+            call.respondText("Received: ${call.request.body}", ContentType.parse("text/plain"))
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -137,7 +137,7 @@ class HttpServerTest {
     fun testHttpQueryParamsParsed() = runTest {
         server.get("/search") { call ->
             val q = call.request.queryParameters["q"] ?: ""
-            call.respondText("Query: $q", ContentType.Text.Plain)
+            call.respondText("Query: $q", ContentType.parse("text/plain"))
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -177,7 +177,7 @@ class HttpServerTest {
     fun testHttpStreamResponse() = runTest {
         server.get("/stream") { call ->
             val data = "streamed data".toByteArray(Charsets.UTF_8)
-            call.respondStream(contentType = ContentType.Application.OctetStream, contentLength = data.size.toLong()) { out ->
+            call.respondStream(contentType = ContentType.parse("application/octet-stream"), contentLength = data.size.toLong()) { out ->
                 out.write(data)
             }
         }

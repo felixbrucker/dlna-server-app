@@ -15,20 +15,13 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
+import java.util.concurrent.ConcurrentHashMap
 
 enum class HttpStatusCode(val code: Int, val description: String) {
     OK(200, "OK"),
     PARTIAL_CONTENT(206, "Partial Content"),
-    BAD_REQUEST(400, "Bad Request"),
     FORBIDDEN(403, "Forbidden"),
-    NOT_FOUND(404, "Not Found"),
-    INTERNAL_SERVER_ERROR(500, "Internal Server Error");
-
-    companion object {
-        fun fromCode(code: Int): HttpStatusCode {
-            return entries.firstOrNull { it.code == code } ?: OK
-        }
-    }
+    NOT_FOUND(404, "Not Found")
 }
 
 data class ContentType(
@@ -41,14 +34,6 @@ data class ContentType(
 
     object Text {
         val Xml = ContentType("text/xml", "utf-8")
-        val Plain = ContentType("text/plain", "utf-8")
-        val Html = ContentType("text/html", "utf-8")
-    }
-
-    object Application {
-        val Xml = ContentType("application/xml", "utf-8")
-        val Json = ContentType("application/json", "utf-8")
-        val OctetStream = ContentType("application/octet-stream")
     }
 
     companion object {
@@ -112,7 +97,11 @@ class HttpCall(
 
     suspend fun respond(status: HttpStatusCode) {
         withContext(Dispatchers.IO) {
-            val extraHeaders = mapOf("Content-Length" to "0", "Connection" to "close")
+            val extraHeaders = mutableMapOf<String, String>()
+            if (response.headers.keys.none { it.equals("content-length", ignoreCase = true) }) {
+                extraHeaders["Content-Length"] = "0"
+            }
+            extraHeaders["Connection"] = "close"
             response.writeHeader(status, extraHeaders)
             outputStream.flush()
         }
@@ -161,13 +150,7 @@ class HttpServer {
     @Volatile
     private var isRunning = false
 
-    private val routes = mutableListOf<Route>()
-
-    data class Route(
-        val method: String,
-        val path: String,
-        val handler: suspend (HttpCall) -> Unit
-    )
+    private val routes = ConcurrentHashMap<Pair<String, String>, suspend (HttpCall) -> Unit>()
 
     fun get(path: String, handler: suspend (HttpCall) -> Unit) {
         route("GET", path, handler)
@@ -182,7 +165,7 @@ class HttpServer {
     }
 
     fun route(method: String, path: String, handler: suspend (HttpCall) -> Unit) {
-        routes.add(Route(method.uppercase(), path, handler))
+        routes[method.uppercase() to path] = handler
     }
 
     fun start(host: String, port: Int, scope: CoroutineScope) {
@@ -240,12 +223,10 @@ class HttpServer {
                 val request = parseRequest(inputStream, clientIp) ?: return
                 val call = HttpCall(request, outputStream)
 
-                val route = routes.firstOrNull {
-                    it.method.equals(request.method, ignoreCase = true) && it.path == request.path
-                }
+                val handler = routes[request.method to request.path]
 
-                if (route != null) {
-                    route.handler(call)
+                if (handler != null) {
+                    handler(call)
                 } else {
                     call.respond(HttpStatusCode.NOT_FOUND)
                 }
