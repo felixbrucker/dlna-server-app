@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.ServerSocket
@@ -198,5 +199,34 @@ class HttpServerTest {
 
         assertTrue(statusLine != null && statusLine.contains("200 OK"))
         assertTrue(sb.toString().contains("streamed data"))
+    }
+
+    @Test
+    fun testRespondStreamHandlesDisconnect() = runTest {
+        var disconnectCalled = false
+        server.get("/stream_disconnect") { call ->
+            val data = "streamed data".toByteArray(Charsets.UTF_8)
+            call.respondStream(
+                contentType = ContentType.parse("application/octet-stream"),
+                contentLength = data.size.toLong(),
+                onClientDisconnected = {
+                    disconnectCalled = true
+                }
+            ) { out ->
+                out.write(data)
+                throw IOException("Simulated client disconnect")
+            }
+        }
+        server.start("127.0.0.1", testPort, testScope)
+        val socket = createConnectedSocket(testPort)
+        val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
+
+        writer.write("GET /stream_disconnect HTTP/1.1\r\nHost: 127.0.0.1:$testPort\r\nConnection: close\r\n\r\n")
+        writer.flush()
+        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
+        reader.readLine()
+        socket.close()
+
+        assertTrue(disconnectCalled)
     }
 }

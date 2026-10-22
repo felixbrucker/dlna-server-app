@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
@@ -111,7 +112,8 @@ class HttpResponse(
 
 class HttpCall(
     val request: HttpRequest,
-    private val outputStream: OutputStream
+    private val outputStream: OutputStream,
+    private val socket: Socket
 ) {
     val response = HttpResponse(outputStream)
 
@@ -148,16 +150,22 @@ class HttpCall(
         contentType: ContentType,
         status: HttpStatusCode = HttpStatusCode.OK,
         contentLength: Long,
+        onClientDisconnected: (IOException) -> Unit = {},
         streamBlock: suspend (OutputStream) -> Unit
     ) {
         withContext(Dispatchers.IO) {
-            val extraHeaders = HttpHeaders(
-                "content-type" to contentType.toString(),
-                "content-length" to contentLength.toString()
-            )
-            response.writeHeader(status, extraHeaders)
-            streamBlock(outputStream)
-            outputStream.flush()
+            try {
+                socket.soTimeout = 0
+                val extraHeaders = HttpHeaders(
+                    "content-type" to contentType.toString(),
+                    "content-length" to contentLength.toString()
+                )
+                response.writeHeader(status, extraHeaders)
+                streamBlock(outputStream)
+                outputStream.flush()
+            } catch (e: IOException) {
+                onClientDisconnected(e)
+            }
         }
     }
 }
@@ -240,7 +248,7 @@ class HttpServer {
                 val clientIp = s.inetAddress?.hostAddress ?: "unknown"
 
                 val request = parseRequest(inputStream, clientIp) ?: return
-                val call = HttpCall(request, outputStream)
+                val call = HttpCall(request, outputStream, s)
 
                 val handler = routes[request.method to request.path]
 

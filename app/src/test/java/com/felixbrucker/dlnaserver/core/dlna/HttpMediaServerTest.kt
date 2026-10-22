@@ -106,4 +106,23 @@ class HttpMediaServerTest {
         assertTrue(statusLine != null && statusLine.contains("200 OK"))
         assertEquals(1, server.connectedClients.value.size)
     }
+
+    @Test
+    fun testClientDisconnectDuringMediaStreamingHandledGracefully() = runTest {
+        val port = 8192
+        server = startServer()
+        val socket = createConnectedSocket(port)
+        val writer = OutputStreamWriter(socket.getOutputStream(), "UTF-8")
+        val encodedPath = ContentDirectoryXml.encodePath(tempFile.absolutePath)
+        writer.write("GET /media?path=$encodedPath HTTP/1.1\r\n")
+        writer.write("Host: 127.0.0.1:$port\r\n")
+        writer.write("Connection: close\r\n\r\n")
+        writer.flush()
+        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
+
+        val statusLine = reader.readLine()
+        socket.close()
+
+        assertTrue(statusLine != null && statusLine.contains("200 OK"))
+    }
 }
