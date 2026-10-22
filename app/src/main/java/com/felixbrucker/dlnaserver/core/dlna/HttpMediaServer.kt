@@ -3,28 +3,12 @@ package com.felixbrucker.dlnaserver.core.dlna
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.network.ContentType
+import com.felixbrucker.dlnaserver.core.network.HttpCall
+import com.felixbrucker.dlnaserver.core.network.HttpRequest
+import com.felixbrucker.dlnaserver.core.network.HttpServer
+import com.felixbrucker.dlnaserver.core.network.HttpStatusCode
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.Application
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.cio.CIO
-import io.ktor.server.cio.CIOApplicationEngine
-import io.ktor.server.engine.EmbeddedServer
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.plugins.origin
-import io.ktor.server.request.ApplicationRequest
-import io.ktor.server.request.header
-import io.ktor.server.request.receiveText
-import io.ktor.server.response.header
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondBytesWriter
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
-import io.ktor.server.routing.head
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
-import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,7 +31,7 @@ class HttpMediaServer @Inject constructor(
     private val sharedDirectoryRepository: SharedDirectoryRepository
 ) {
     private val port: Int = 8192
-    private var ktorEngine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
+    private var httpServer: HttpServer? = null
     private var cleanUpJob: Job? = null
 
     private val clientAccessMap = ConcurrentHashMap<String, ConnectedClientInfo>()
@@ -65,14 +49,15 @@ class HttpMediaServer @Inject constructor(
         if (isRunning) return
         isRunning = true
 
-        Timber.i("Starting Ktor on %s:%d", ipAddress, port)
+        Timber.i("Starting HttpServer on %s:%d", ipAddress, port)
 
         try {
-            ktorEngine = embeddedServer(CIO, host = ipAddress, port = port) {
-                configureRouting(ipAddress)
-            }.start(wait = false)
+            val server = HttpServer()
+            configureRouting(server, ipAddress)
+            server.start(ipAddress, port, scope)
+            httpServer = server
         } catch (e: Exception) {
-            Timber.e(e, "Failed to start Ktor")
+            Timber.e(e, "Failed to start HttpServer")
             stop()
         }
 
@@ -89,88 +74,85 @@ class HttpMediaServer @Inject constructor(
     fun stop() {
         if (!isRunning) return
         isRunning = false
-        Timber.i("Stopping Ktor")
+        Timber.i("Stopping HttpServer")
 
         try {
-            ktorEngine?.stop(1000, 2000)
+            httpServer?.stop()
         } catch (e: Exception) {
-            Timber.e(e, "Error stopping Ktor engine")
+            Timber.e(e, "Error stopping HttpServer")
         }
-        ktorEngine = null
+        httpServer = null
         cleanUpJob?.cancel()
         cleanUpJob = null
         clientAccessMap.clear()
         _connectedClients.value = emptyList()
     }
 
-    private fun Application.configureRouting(hostIp: String) {
-        routing {
-            get("/description.xml") {
-                updateClientActivity(call.request.clientInfo, "Browsing Description")
-                val xml = ContentDirectoryXml.generateDeviceDescription()
-                call.respondText(xml, ContentType.Text.Xml)
-            }
+    private fun configureRouting(server: HttpServer, hostIp: String) {
+        server.get("/description.xml") { call ->
+            updateClientActivity(call.clientInfo, "Browsing Description")
+            call.respondText(ContentDirectoryXml.generateDeviceDescription(), ContentType.Text.Xml)
+        }
 
-            get("/scpd/ContentDirectory.xml") {
-                updateClientActivity(call.request.clientInfo, "Browsing ContentDirectory SCPD")
-                call.respondText(ContentDirectoryXml.getContentDirectoryScpd(), ContentType.Text.Xml)
-            }
+        server.get("/scpd/ContentDirectory.xml") { call ->
+            updateClientActivity(call.clientInfo, "Browsing ContentDirectory SCPD")
+            call.respondText(ContentDirectoryXml.getContentDirectoryScpd(), ContentType.Text.Xml)
+        }
 
-            get("/scpd/ConnectionManager.xml") {
-                updateClientActivity(call.request.clientInfo, "Browsing ConnectionManager SCPD")
-                call.respondText(ContentDirectoryXml.getConnectionManagerScpd(), ContentType.Text.Xml)
-            }
+        server.get("/scpd/ConnectionManager.xml") { call ->
+            updateClientActivity(call.clientInfo, "Browsing ConnectionManager SCPD")
+            call.respondText(ContentDirectoryXml.getConnectionManagerScpd(), ContentType.Text.Xml)
+        }
 
-            post("/ctl/ContentDirectory") {
-                val body = call.receiveText()
-                val objectId = extractTagValue(body, "ObjectID") ?: "0"
-                val folderName = if (objectId == "0") {
-                    "Root"
-                } else if (objectId.startsWith("f_")) {
-                    val path = ContentDirectoryXml.decodePath(objectId.removePrefix("f_"))
-                    File(path).name.ifEmpty { path }
-                } else {
-                    "Folder"
-                }
-                updateClientActivity(call.request.clientInfo, "Browsing: $folderName")
-                val baseUrl = "http://$hostIp:$port"
-                val responseXml = handleContentDirectoryControl(body, baseUrl)
-                call.respondText(responseXml, ContentType.Text.Xml)
+        server.post("/ctl/ContentDirectory") { call ->
+            val body = call.request.body
+            val objectId = extractTagValue(body, "ObjectID") ?: "0"
+            val folderName = if (objectId == "0") {
+                "Root"
+            } else if (objectId.startsWith("f_")) {
+                val path = ContentDirectoryXml.decodePath(objectId.removePrefix("f_"))
+                File(path).name.ifEmpty { path }
+            } else {
+                "Folder"
             }
+            updateClientActivity(call.clientInfo, "Browsing: $folderName")
+            val baseUrl = "http://$hostIp:$port"
+            val responseXml = handleContentDirectoryControl(body, baseUrl)
+            call.respondText(responseXml, ContentType.Text.Xml)
+        }
 
-            post("/ctl/ConnectionManager") {
-                updateClientActivity(call.request.clientInfo, "Connection Manager")
-                call.respondText(handleConnectionManagerControl(), ContentType.Text.Xml)
-            }
+        server.post("/ctl/ConnectionManager") { call ->
+            updateClientActivity(call.clientInfo, "Connection Manager")
+            call.respondText(handleConnectionManagerControl(), ContentType.Text.Xml)
+        }
 
-            get("/media") {
-                handleMediaRequest(this.call, isHeadOnly = false)
-            }
+        server.get("/media") { call ->
+            handleMediaRequest(call, isHeadOnly = false)
+        }
 
-            head("/media") {
-                handleMediaRequest(this.call, isHeadOnly = true)
-            }
+        server.head("/media") { call ->
+            handleMediaRequest(call, isHeadOnly = true)
         }
     }
 
-    private suspend fun handleMediaRequest(call: ApplicationCall, isHeadOnly: Boolean) {
+    private suspend fun handleMediaRequest(call: HttpCall, isHeadOnly: Boolean) {
         val pathParam = call.request.queryParameters["path"]
 
         if (pathParam.isNullOrEmpty()) {
-            call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.NOT_FOUND)
             return
         }
 
         val filePath = ContentDirectoryXml.decodePath(pathParam)
         val file = File(filePath)
         if (!file.exists() || !file.isFile) {
-            call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.NOT_FOUND)
             return
         }
 
         val isAllowed = isAllowedToAccess(file)
         if (!isAllowed) {
-            call.respond(HttpStatusCode.Forbidden)
+            call.respond(HttpStatusCode.FORBIDDEN)
             return
         }
 
@@ -213,11 +195,11 @@ class HttpMediaServer @Inject constructor(
         val mimeType = MimeTypeUtils.getMimeType(file)
         val contentType = ContentType.parse(mimeType)
 
-        mediaRequestContext.call.respondBytesWriter(
+        mediaRequestContext.call.respondStream(
             contentType = contentType,
             status = mediaRequestContext.status,
             contentLength = mediaRequestContext.effectiveRange.contentLength
-        ) {
+        ) { outputStream ->
             withContext(Dispatchers.IO) {
                 RandomAccessFile(file, "r").use { raf ->
                     raf.seek(mediaRequestContext.effectiveRange.start)
@@ -230,7 +212,7 @@ class HttpMediaServer @Inject constructor(
                         val readLength = minOf(buffer.size.toLong(), bytesToRead).toInt()
                         val read = raf.read(buffer, 0, readLength)
                         if (read <= 0) break
-                        writeFully(buffer, 0, read)
+                        outputStream.write(buffer, 0, read)
                         bytesToRead -= read
 
                         chunkCount++
@@ -312,14 +294,14 @@ class HttpMediaServer @Inject constructor(
 }
 
 data class MediaRequestContext(
-    val call: ApplicationCall,
+    val call: HttpCall,
     val file: File,
     val effectiveRange: EffectiveRange,
 ) {
-    val clientInfo = call.request.clientInfo
-    val status: HttpStatusCode = if (effectiveRange.isPartial) HttpStatusCode.PartialContent else HttpStatusCode.OK
+    val clientInfo = call.clientInfo
+    val status: HttpStatusCode = if (effectiveRange.isPartial) HttpStatusCode.PARTIAL_CONTENT else HttpStatusCode.OK
     val logLine: String get() {
-        val rangeHeader = call.request.header("Range")
+        val rangeHeader = call.request.getHeader("Range")
         val tags = listOf(
             "client_ip=${clientInfo.ipAddress}",
             "user_agent=${clientInfo.userAgent}",
@@ -331,6 +313,14 @@ data class MediaRequestContext(
     }
 }
 
+data class ClientInfo(
+    val ipAddress: String,
+    val userAgent: String
+)
+
+val HttpCall.clientInfo: ClientInfo
+    get() = ClientInfo(request.clientIp, request.userAgent)
+
 data class EffectiveRange(
     val start: Long,
     val end: Long,
@@ -339,9 +329,9 @@ data class EffectiveRange(
     val contentLength: Long = end - start + 1
 }
 
-fun ApplicationRequest.extractEffectiveRange(file: File): EffectiveRange {
+fun HttpRequest.extractEffectiveRange(file: File): EffectiveRange {
     val fileLength = file.length()
-    val rangeHeader = header("Range")
+    val rangeHeader = getHeader("Range")
 
     var start: Long = 0
     var end: Long = fileLength - 1
@@ -380,16 +370,4 @@ fun ApplicationRequest.extractEffectiveRange(file: File): EffectiveRange {
         end = end,
         isPartial = isPartial
     )
-}
-
-data class ClientInfo(
-    val ipAddress: String,
-    val userAgent: String
-)
-
-val ApplicationRequest.clientInfo: ClientInfo get() {
-    val clientIp = origin.remoteHost
-    val userAgent = header("User-Agent") ?: "Unknown"
-
-    return ClientInfo(clientIp, userAgent)
 }
