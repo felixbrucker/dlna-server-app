@@ -68,21 +68,25 @@ data class HttpRequest(
 class HttpResponse(
     private val outputStream: OutputStream
 ) {
-    val headers = mutableMapOf<String, String>()
+    val headers = mutableMapOf<String, Pair<String, String>>()
 
     fun header(name: String, value: String) {
-        headers[name] = value
+        headers[name.lowercase()] = Pair(name, value)
     }
 
     internal fun writeHeader(status: HttpStatusCode, extraHeaders: Map<String, String> = emptyMap()) {
-        val allHeaders = mutableMapOf<String, String>()
-        allHeaders.putAll(headers)
-        allHeaders.putAll(extraHeaders)
+        val merged = mutableMapOf<String, Pair<String, String>>()
+        for ((key, value) in extraHeaders) {
+            merged[key.lowercase()] = Pair(key, value)
+        }
+        for ((key, pair) in headers) {
+            merged[key] = pair
+        }
 
         val sb = StringBuilder()
         sb.append("HTTP/1.1 ").append(status.code).append(" ").append(status.description).append("\r\n")
-        for ((key, value) in allHeaders) {
-            sb.append(key).append(": ").append(value).append("\r\n")
+        for ((_, pair) in merged) {
+            sb.append(pair.first).append(": ").append(pair.second).append("\r\n")
         }
         sb.append("\r\n")
         outputStream.write(sb.toString().toByteArray(Charsets.UTF_8))
@@ -97,11 +101,7 @@ class HttpCall(
 
     suspend fun respond(status: HttpStatusCode) {
         withContext(Dispatchers.IO) {
-            val extraHeaders = mutableMapOf<String, String>()
-            if (response.headers.keys.none { it.equals("content-length", ignoreCase = true) }) {
-                extraHeaders["Content-Length"] = "0"
-            }
-            extraHeaders["Connection"] = "close"
+            val extraHeaders = mapOf("Content-Length" to "0", "Connection" to "close")
             response.writeHeader(status, extraHeaders)
             outputStream.flush()
         }
