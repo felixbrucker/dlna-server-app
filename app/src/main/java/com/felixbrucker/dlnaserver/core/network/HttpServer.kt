@@ -52,15 +52,29 @@ data class ContentType(
     }
 }
 
+class HttpHeaders {
+    private val map = mutableMapOf<String, String>()
+
+    operator fun set(name: String, value: String) {
+        map[name.lowercase()] = value
+    }
+
+    operator fun get(name: String): String? {
+        return map[name.lowercase()]
+    }
+
+    fun toMap(): Map<String, String> = map.toMap()
+}
+
 data class HttpRequest(
     val method: String,
     val path: String,
     val queryParameters: Map<String, String>,
-    val headers: Map<String, String>,
+    val headers: HttpHeaders,
     val clientIp: String,
     val body: String
 ) {
-    fun getHeader(name: String): String? = headers[name.lowercase()]
+    fun getHeader(name: String): String? = headers[name]
 
     val userAgent: String get() = getHeader("User-Agent") ?: "Unknown"
 }
@@ -68,20 +82,16 @@ data class HttpRequest(
 class HttpResponse(
     private val outputStream: OutputStream
 ) {
-    val headers = mutableMapOf<String, String>()
+    val headers = HttpHeaders()
 
     fun header(name: String, value: String) {
-        headers[name.lowercase()] = value
+        headers[name] = value
     }
 
-    internal fun writeHeader(status: HttpStatusCode, extraHeaders: Map<String, String> = emptyMap()) {
+    internal fun writeHeader(status: HttpStatusCode, extraHeaders: HttpHeaders = HttpHeaders()) {
         val merged = mutableMapOf<String, String>()
-        for ((key, value) in extraHeaders) {
-            merged[key.lowercase()] = value
-        }
-        for ((key, value) in headers) {
-            merged[key.lowercase()] = value
-        }
+        merged.putAll(extraHeaders.toMap())
+        merged.putAll(headers.toMap())
 
         val sb = StringBuilder()
         sb.append("HTTP/1.1 ").append(status.code).append(" ").append(status.description).append("\r\n")
@@ -101,7 +111,9 @@ class HttpCall(
 
     suspend fun respond(status: HttpStatusCode) {
         withContext(Dispatchers.IO) {
-            val extraHeaders = mapOf("content-length" to "0", "connection" to "close")
+            val extraHeaders = HttpHeaders()
+            extraHeaders["content-length"] = "0"
+            extraHeaders["connection"] = "close"
             response.writeHeader(status, extraHeaders)
             outputStream.flush()
         }
@@ -114,11 +126,10 @@ class HttpCall(
     ) {
         withContext(Dispatchers.IO) {
             val bytes = text.toByteArray(Charsets.UTF_8)
-            val extraHeaders = mapOf(
-                "content-type" to contentType.toString(),
-                "content-length" to bytes.size.toString(),
-                "connection" to "close"
-            )
+            val extraHeaders = HttpHeaders()
+            extraHeaders["content-type"] = contentType.toString()
+            extraHeaders["content-length"] = bytes.size.toString()
+            extraHeaders["connection"] = "close"
             response.writeHeader(status, extraHeaders)
             outputStream.write(bytes)
             outputStream.flush()
@@ -132,10 +143,9 @@ class HttpCall(
         streamBlock: suspend (OutputStream) -> Unit
     ) {
         withContext(Dispatchers.IO) {
-            val extraHeaders = mapOf(
-                "content-type" to contentType.toString(),
-                "content-length" to contentLength.toString()
-            )
+            val extraHeaders = HttpHeaders()
+            extraHeaders["content-type"] = contentType.toString()
+            extraHeaders["content-length"] = contentLength.toString()
             response.writeHeader(status, extraHeaders)
             streamBlock(outputStream)
             outputStream.flush()
@@ -268,13 +278,13 @@ class HttpServer {
             }
         }
 
-        val headers = mutableMapOf<String, String>()
+        val headers = HttpHeaders()
         while (true) {
             val line = reader.readLine() ?: break
             if (line.isEmpty()) break
             val colonIdx = line.indexOf(":")
             if (colonIdx != -1) {
-                val headerName = line.substring(0, colonIdx).trim().lowercase()
+                val headerName = line.substring(0, colonIdx).trim()
                 val headerValue = line.substring(colonIdx + 1).trim()
                 headers[headerName] = headerValue
             }
