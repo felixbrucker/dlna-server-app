@@ -52,14 +52,16 @@ data class ContentType(
     }
 }
 
-class HttpHeaders(initialHeaders: Map<String, String> = emptyMap()) {
+class HttpHeaders(vararg pairs: Pair<String, String>) {
     private val map = mutableMapOf<String, String>()
 
     init {
-        for ((key, value) in initialHeaders) {
+        for ((key, value) in pairs) {
             this[key] = value
         }
     }
+
+    constructor(initialHeaders: Map<String, String>) : this(*initialHeaders.toList().toTypedArray())
 
     operator fun set(name: String, value: String) {
         map[name.lowercase()] = value
@@ -118,10 +120,8 @@ class HttpCall(
     suspend fun respond(status: HttpStatusCode) {
         withContext(Dispatchers.IO) {
             val extraHeaders = HttpHeaders(
-                mapOf(
-                    "content-length" to "0",
-                    "connection" to "close"
-                )
+                "content-length" to "0",
+                "connection" to "close"
             )
             response.writeHeader(status, extraHeaders)
             outputStream.flush()
@@ -136,11 +136,9 @@ class HttpCall(
         withContext(Dispatchers.IO) {
             val bytes = text.toByteArray(Charsets.UTF_8)
             val extraHeaders = HttpHeaders(
-                mapOf(
-                    "content-type" to contentType.toString(),
-                    "content-length" to bytes.size.toString(),
-                    "connection" to "close"
-                )
+                "content-type" to contentType.toString(),
+                "content-length" to bytes.size.toString(),
+                "connection" to "close"
             )
             response.writeHeader(status, extraHeaders)
             outputStream.write(bytes)
@@ -156,10 +154,8 @@ class HttpCall(
     ) {
         withContext(Dispatchers.IO) {
             val extraHeaders = HttpHeaders(
-                mapOf(
-                    "content-type" to contentType.toString(),
-                    "content-length" to contentLength.toString()
-                )
+                "content-type" to contentType.toString(),
+                "content-length" to contentLength.toString()
             )
             response.writeHeader(status, extraHeaders)
             streamBlock(outputStream)
