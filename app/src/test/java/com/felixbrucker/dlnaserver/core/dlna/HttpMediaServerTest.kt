@@ -39,7 +39,6 @@ class HttpMediaServerTest {
         val mimeTypeMapMock = mockk<MimeTypeMap>()
         every { MimeTypeMap.getSingleton() } returns mimeTypeMapMock
         every { mimeTypeMapMock.getMimeTypeFromExtension(any()) } returns null
-
         tempFile = File.createTempFile("test_media", ".mp4").apply {
             writeBytes(ByteArray(1024 * 100) { 0x01.toByte() })
             deleteOnExit()
@@ -97,7 +96,6 @@ class HttpMediaServerTest {
         writer.write("Host: 127.0.0.1:$port\r\n")
         writer.write("Connection: close\r\n\r\n")
         writer.flush()
-
         val reader = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
         val statusLine = reader.readLine()
         val buffer = CharArray(1024)
@@ -105,7 +103,7 @@ class HttpMediaServerTest {
         }
         socket.close()
 
-        assertTrue(statusLine.contains("200 OK"))
+        assertTrue(statusLine != null && statusLine.contains("200 OK"))
         assertEquals(1, server.connectedClients.value.size)
     }
 }

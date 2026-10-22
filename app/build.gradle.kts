@@ -128,8 +128,6 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.moshi)
     implementation(libs.moshi.kotlin)
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.cio)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
