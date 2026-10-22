@@ -3,9 +3,11 @@ package com.felixbrucker.dlnaserver.core.dlna
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.SharedDirectory
+import com.felixbrucker.dlnaserver.core.network.ContentType
 import com.felixbrucker.dlnaserver.core.network.HttpCall
 import com.felixbrucker.dlnaserver.core.network.HttpRequest
 import com.felixbrucker.dlnaserver.core.network.HttpServer
+import com.felixbrucker.dlnaserver.core.network.HttpStatusCode
 import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,17 +92,17 @@ class HttpMediaServer @Inject constructor(
         server.get("/description.xml") { call ->
             updateClientActivity(call.clientInfo, "Browsing Description")
             val xml = ContentDirectoryXml.generateDeviceDescription()
-            call.respondText(xml, contentType = "text/xml")
+            call.respondText(xml, ContentType.Text.Xml)
         }
 
         server.get("/scpd/ContentDirectory.xml") { call ->
             updateClientActivity(call.clientInfo, "Browsing ContentDirectory SCPD")
-            call.respondText(ContentDirectoryXml.getContentDirectoryScpd(), contentType = "text/xml")
+            call.respondText(ContentDirectoryXml.getContentDirectoryScpd(), ContentType.Text.Xml)
         }
 
         server.get("/scpd/ConnectionManager.xml") { call ->
             updateClientActivity(call.clientInfo, "Browsing ConnectionManager SCPD")
-            call.respondText(ContentDirectoryXml.getConnectionManagerScpd(), contentType = "text/xml")
+            call.respondText(ContentDirectoryXml.getConnectionManagerScpd(), ContentType.Text.Xml)
         }
 
         server.post("/ctl/ContentDirectory") { call ->
@@ -117,12 +119,12 @@ class HttpMediaServer @Inject constructor(
             updateClientActivity(call.clientInfo, "Browsing: $folderName")
             val baseUrl = "http://$hostIp:$port"
             val responseXml = handleContentDirectoryControl(body, baseUrl)
-            call.respondText(responseXml, contentType = "text/xml")
+            call.respondText(responseXml, ContentType.Text.Xml)
         }
 
         server.post("/ctl/ConnectionManager") { call ->
             updateClientActivity(call.clientInfo, "Connection Manager")
-            call.respondText(handleConnectionManagerControl(), contentType = "text/xml")
+            call.respondText(handleConnectionManagerControl(), ContentType.Text.Xml)
         }
 
         server.get("/media") { call ->
@@ -138,45 +140,42 @@ class HttpMediaServer @Inject constructor(
         val pathParam = call.request.queryParameters["path"]
 
         if (pathParam.isNullOrEmpty()) {
-            call.respondStatus(404)
+            call.respond(HttpStatusCode.NOT_FOUND)
             return
         }
 
         val filePath = ContentDirectoryXml.decodePath(pathParam)
         val file = File(filePath)
         if (!file.exists() || !file.isFile) {
-            call.respondStatus(404)
+            call.respond(HttpStatusCode.NOT_FOUND)
             return
         }
 
         val isAllowed = isAllowedToAccess(file)
         if (!isAllowed) {
-            call.respondStatus(403)
+            call.respond(HttpStatusCode.FORBIDDEN)
             return
         }
 
         val fileLength = file.length()
         val effectiveRange = call.request.extractEffectiveRange(file)
 
-        val responseHeaders = mutableMapOf<String, String>()
-        responseHeaders["Accept-Ranges"] = "bytes"
-        responseHeaders["Connection"] = "keep-alive"
-        responseHeaders["transferMode.dlna.org"] = "Streaming"
-        responseHeaders["contentFeatures.dlna.org"] = "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+        call.response.header("Accept-Ranges", "bytes")
+        call.response.header("Connection", "keep-alive")
+        call.response.header("transferMode.dlna.org", "Streaming")
+        call.response.header("contentFeatures.dlna.org", "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000")
 
         if (effectiveRange.isPartial) {
-            responseHeaders["Content-Range"] = "bytes ${effectiveRange.start}-${effectiveRange.end}/$fileLength"
+            call.response.header("Content-Range", "bytes ${effectiveRange.start}-${effectiveRange.end}/$fileLength")
         }
 
         val mediaRequestContext = MediaRequestContext(call, file, effectiveRange)
-        val mimeType = MimeTypeUtils.getMimeType(file)
-
         if (isHeadOnly) {
-            call.respondStatus(mediaRequestContext.status, headers = responseHeaders)
+            call.respond(mediaRequestContext.status)
             return
         }
 
-        serveRawFile(mediaRequestContext, mimeType, responseHeaders)
+        serveRawFile(mediaRequestContext)
     }
 
     private suspend fun isAllowedToAccess(file: File): Boolean {
@@ -189,20 +188,18 @@ class HttpMediaServer @Inject constructor(
         }
     }
 
-    private suspend fun serveRawFile(
-        mediaRequestContext: MediaRequestContext,
-        mimeType: String,
-        responseHeaders: Map<String, String>
-    ) {
+    private suspend fun serveRawFile(mediaRequestContext: MediaRequestContext) {
         val file = mediaRequestContext.file
         Timber.d(mediaRequestContext.logLine)
         updateClientActivity(mediaRequestContext.clientInfo, "Streaming: ${file.name}")
 
+        val mimeType = MimeTypeUtils.getMimeType(file)
+        val contentType = ContentType.parse(mimeType)
+
         mediaRequestContext.call.respondStream(
-            contentType = mimeType,
+            contentType = contentType,
             status = mediaRequestContext.status,
-            contentLength = mediaRequestContext.effectiveRange.contentLength,
-            headers = responseHeaders
+            contentLength = mediaRequestContext.effectiveRange.contentLength
         ) { outputStream ->
             withContext(Dispatchers.IO) {
                 RandomAccessFile(file, "r").use { raf ->
@@ -303,7 +300,7 @@ data class MediaRequestContext(
     val effectiveRange: EffectiveRange,
 ) {
     val clientInfo = call.clientInfo
-    val status: Int = if (effectiveRange.isPartial) 206 else 200
+    val status: HttpStatusCode = if (effectiveRange.isPartial) HttpStatusCode.PARTIAL_CONTENT else HttpStatusCode.OK
     val logLine: String get() {
         val rangeHeader = call.request.getHeader("Range")
         val tags = listOf(

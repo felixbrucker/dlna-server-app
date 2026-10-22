@@ -56,7 +56,8 @@ class HttpServerTest {
     @Test
     fun testHttpGetRouteReturns200AndText() = runTest {
         server.get("/test") { call ->
-            call.respondText("hello world", contentType = "text/plain")
+            call.response.header("X-Custom-Header", "CustomValue")
+            call.respondText("hello world", ContentType.Text.Plain)
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -67,20 +68,25 @@ class HttpServerTest {
 
         val statusLine = reader.readLine()
         val sb = StringBuilder()
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
+        var foundHeader = false
+        while (true) {
+            val line = reader.readLine() ?: break
+            if (line.startsWith("X-Custom-Header: CustomValue") || line.startsWith("x-custom-header: CustomValue")) {
+                foundHeader = true
+            }
             sb.append(line)
         }
         socket.close()
 
         assertTrue(statusLine != null && statusLine.contains("200 OK"))
+        assertTrue(foundHeader)
         assertTrue(sb.toString().contains("hello world"))
     }
 
     @Test
     fun testHttpPostRouteParsesBodyAndReturnsResponse() = runTest {
         server.post("/echo") { call ->
-            call.respondText("Received: ${call.request.body}", contentType = "text/plain")
+            call.respondText("Received: ${call.request.body}", ContentType.Text.Plain)
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -105,7 +111,7 @@ class HttpServerTest {
     @Test
     fun testHttpHeadRouteReturnsHeadersWithoutBody() = runTest {
         server.head("/head") { call ->
-            call.respondStatus(200)
+            call.respond(HttpStatusCode.OK)
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -131,7 +137,7 @@ class HttpServerTest {
     fun testHttpQueryParamsParsed() = runTest {
         server.get("/search") { call ->
             val q = call.request.queryParameters["q"] ?: ""
-            call.respondText("Query: $q", contentType = "text/plain")
+            call.respondText("Query: $q", ContentType.Text.Plain)
         }
         server.start("127.0.0.1", testPort, testScope)
         val socket = createConnectedSocket(testPort)
@@ -171,7 +177,7 @@ class HttpServerTest {
     fun testHttpStreamResponse() = runTest {
         server.get("/stream") { call ->
             val data = "streamed data".toByteArray(Charsets.UTF_8)
-            call.respondStream(contentType = "application/octet-stream", contentLength = data.size.toLong()) { out ->
+            call.respondStream(contentType = ContentType.Application.OctetStream, contentLength = data.size.toLong()) { out ->
                 out.write(data)
             }
         }

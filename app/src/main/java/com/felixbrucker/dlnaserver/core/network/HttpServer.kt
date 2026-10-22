@@ -16,6 +16,57 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
 
+enum class HttpStatusCode(val code: Int, val description: String) {
+    OK(200, "OK"),
+    PARTIAL_CONTENT(206, "Partial Content"),
+    BAD_REQUEST(400, "Bad Request"),
+    FORBIDDEN(403, "Forbidden"),
+    NOT_FOUND(404, "Not Found"),
+    INTERNAL_SERVER_ERROR(500, "Internal Server Error");
+
+    companion object {
+        fun fromCode(code: Int): HttpStatusCode {
+            return entries.firstOrNull { it.code == code } ?: OK
+        }
+    }
+}
+
+data class ContentType(
+    val mimeType: String,
+    val charset: String? = null
+) {
+    override fun toString(): String {
+        return if (charset != null) "$mimeType; charset=$charset" else mimeType
+    }
+
+    object Text {
+        val Xml = ContentType("text/xml", "utf-8")
+        val Plain = ContentType("text/plain", "utf-8")
+        val Html = ContentType("text/html", "utf-8")
+    }
+
+    object Application {
+        val Xml = ContentType("application/xml", "utf-8")
+        val Json = ContentType("application/json", "utf-8")
+        val OctetStream = ContentType("application/octet-stream")
+    }
+
+    companion object {
+        fun parse(value: String): ContentType {
+            val parts = value.split(";").map { it.trim() }
+            val mimeType = parts.firstOrNull() ?: "application/octet-stream"
+            var charset: String? = null
+            for (i in 1 until parts.size) {
+                val param = parts[i]
+                if (param.lowercase().startsWith("charset=")) {
+                    charset = param.substringAfter("=").trim().removeSurrounding("\"")
+                }
+            }
+            return ContentType(mimeType, charset)
+        }
+    }
+}
+
 data class HttpRequest(
     val method: String,
     val path: String,
@@ -24,78 +75,28 @@ data class HttpRequest(
     val clientIp: String,
     val body: String
 ) {
-    fun getHeader(name: String): String? {
-        return headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
-    }
+    fun getHeader(name: String): String? = headers[name.lowercase()]
 
     val userAgent: String get() = getHeader("User-Agent") ?: "Unknown"
 }
 
-class HttpCall(
-    val request: HttpRequest,
+class HttpResponse(
     private val outputStream: OutputStream
 ) {
-    suspend fun respondText(
-        text: String,
-        contentType: String = "text/xml; charset=utf-8",
-        status: Int = 200,
-        statusText: String = getStatusText(status),
-        headers: Map<String, String> = emptyMap()
-    ) {
-        withContext(Dispatchers.IO) {
-            val bytes = text.toByteArray(Charsets.UTF_8)
-            val allHeaders = mutableMapOf<String, String>()
-            allHeaders["Content-Type"] = contentType
-            allHeaders["Content-Length"] = bytes.size.toString()
-            allHeaders["Connection"] = "close"
-            allHeaders.putAll(headers)
+    val headers = mutableMapOf<String, String>()
 
-            writeHeader(status, statusText, allHeaders)
-            outputStream.write(bytes)
-            outputStream.flush()
-        }
+    fun header(name: String, value: String) {
+        headers[name] = value
     }
 
-    suspend fun respondStatus(
-        status: Int,
-        statusText: String = getStatusText(status),
-        headers: Map<String, String> = emptyMap()
-    ) {
-        withContext(Dispatchers.IO) {
-            val allHeaders = mutableMapOf<String, String>()
-            allHeaders["Content-Length"] = "0"
-            allHeaders["Connection"] = "close"
-            allHeaders.putAll(headers)
+    internal fun writeHeader(status: HttpStatusCode, extraHeaders: Map<String, String> = emptyMap()) {
+        val allHeaders = mutableMapOf<String, String>()
+        allHeaders.putAll(headers)
+        allHeaders.putAll(extraHeaders)
 
-            writeHeader(status, statusText, allHeaders)
-            outputStream.flush()
-        }
-    }
-
-    suspend fun respondStream(
-        contentType: String,
-        status: Int = 200,
-        statusText: String = getStatusText(status),
-        contentLength: Long,
-        headers: Map<String, String> = emptyMap(),
-        streamBlock: suspend (OutputStream) -> Unit
-    ) {
-        withContext(Dispatchers.IO) {
-            val allHeaders = mutableMapOf<String, String>()
-            allHeaders["Content-Type"] = contentType
-            allHeaders["Content-Length"] = contentLength.toString()
-            allHeaders.putAll(headers)
-
-            writeHeader(status, statusText, allHeaders)
-            streamBlock(outputStream)
-            outputStream.flush()
-        }
-    }
-
-    private fun writeHeader(status: Int, statusText: String, headers: Map<String, String>) {
         val sb = StringBuilder()
-        sb.append("HTTP/1.1 ").append(status).append(" ").append(statusText).append("\r\n")
-        for ((key, value) in headers) {
+        sb.append("HTTP/1.1 ").append(status.code).append(" ").append(status.description).append("\r\n")
+        for ((key, value) in allHeaders) {
             sb.append(key).append(": ").append(value).append("\r\n")
         }
         sb.append("\r\n")
@@ -103,14 +104,54 @@ class HttpCall(
     }
 }
 
-fun getStatusText(status: Int): String = when (status) {
-    200 -> "OK"
-    206 -> "Partial Content"
-    400 -> "Bad Request"
-    403 -> "Forbidden"
-    404 -> "Not Found"
-    500 -> "Internal Server Error"
-    else -> "OK"
+class HttpCall(
+    val request: HttpRequest,
+    private val outputStream: OutputStream
+) {
+    val response = HttpResponse(outputStream)
+
+    suspend fun respond(status: HttpStatusCode) {
+        withContext(Dispatchers.IO) {
+            val extraHeaders = mapOf("Content-Length" to "0", "Connection" to "close")
+            response.writeHeader(status, extraHeaders)
+            outputStream.flush()
+        }
+    }
+
+    suspend fun respondText(
+        text: String,
+        contentType: ContentType = ContentType.Text.Xml,
+        status: HttpStatusCode = HttpStatusCode.OK
+    ) {
+        withContext(Dispatchers.IO) {
+            val bytes = text.toByteArray(Charsets.UTF_8)
+            val extraHeaders = mapOf(
+                "Content-Type" to contentType.toString(),
+                "Content-Length" to bytes.size.toString(),
+                "Connection" to "close"
+            )
+            response.writeHeader(status, extraHeaders)
+            outputStream.write(bytes)
+            outputStream.flush()
+        }
+    }
+
+    suspend fun respondStream(
+        contentType: ContentType,
+        status: HttpStatusCode = HttpStatusCode.OK,
+        contentLength: Long,
+        streamBlock: suspend (OutputStream) -> Unit
+    ) {
+        withContext(Dispatchers.IO) {
+            val extraHeaders = mapOf(
+                "Content-Type" to contentType.toString(),
+                "Content-Length" to contentLength.toString()
+            )
+            response.writeHeader(status, extraHeaders)
+            streamBlock(outputStream)
+            outputStream.flush()
+        }
+    }
 }
 
 class HttpServer {
@@ -206,7 +247,7 @@ class HttpServer {
                 if (route != null) {
                     route.handler(call)
                 } else {
-                    call.respondStatus(404)
+                    call.respond(HttpStatusCode.NOT_FOUND)
                 }
             }
         } catch (e: Exception) {
@@ -252,15 +293,13 @@ class HttpServer {
             if (line.isEmpty()) break
             val colonIdx = line.indexOf(":")
             if (colonIdx != -1) {
-                val headerName = line.substring(0, colonIdx).trim()
+                val headerName = line.substring(0, colonIdx).trim().lowercase()
                 val headerValue = line.substring(colonIdx + 1).trim()
                 headers[headerName] = headerValue
             }
         }
 
-        val contentLength = headers.entries
-            .firstOrNull { it.key.equals("Content-Length", ignoreCase = true) }
-            ?.value?.toIntOrNull() ?: 0
+        val contentLength = headers["content-length"]?.toIntOrNull() ?: 0
 
         val body = if (contentLength > 0) {
             val bodyBytes = reader.readBytes(contentLength)
