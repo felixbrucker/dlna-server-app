@@ -168,15 +168,15 @@ class HttpMediaServer @Inject constructor(
             responseHeaders["Content-Range"] = "bytes ${effectiveRange.start}-${effectiveRange.end}/$fileLength"
         }
 
-        val status = if (effectiveRange.isPartial) 206 else 200
+        val mediaRequestContext = MediaRequestContext(call, file, effectiveRange)
         val mimeType = MimeTypeUtils.getMimeType(file)
 
         if (isHeadOnly) {
-            call.respondStatus(status, headers = responseHeaders)
+            call.respondStatus(mediaRequestContext.status, headers = responseHeaders)
             return
         }
 
-        serveRawFile(call, file, effectiveRange, mimeType, status, responseHeaders)
+        serveRawFile(mediaRequestContext, mimeType, responseHeaders)
     }
 
     private suspend fun isAllowedToAccess(file: File): Boolean {
@@ -190,29 +190,25 @@ class HttpMediaServer @Inject constructor(
     }
 
     private suspend fun serveRawFile(
-        call: HttpCall,
-        file: File,
-        effectiveRange: EffectiveRange,
+        mediaRequestContext: MediaRequestContext,
         mimeType: String,
-        status: Int,
         responseHeaders: Map<String, String>
     ) {
-        val clientInfo = call.clientInfo
-        val rangeHeader = call.request.getHeader("Range")
-        Timber.d("Media request: client_ip=${clientInfo.ipAddress}, user_agent=${clientInfo.userAgent}, range=$rangeHeader, file=${file.name}")
-        updateClientActivity(clientInfo, "Streaming: ${file.name}")
+        val file = mediaRequestContext.file
+        Timber.d(mediaRequestContext.logLine)
+        updateClientActivity(mediaRequestContext.clientInfo, "Streaming: ${file.name}")
 
-        call.respondStream(
+        mediaRequestContext.call.respondStream(
             contentType = mimeType,
-            status = status,
-            contentLength = effectiveRange.contentLength,
+            status = mediaRequestContext.status,
+            contentLength = mediaRequestContext.effectiveRange.contentLength,
             headers = responseHeaders
         ) { outputStream ->
             withContext(Dispatchers.IO) {
                 RandomAccessFile(file, "r").use { raf ->
-                    raf.seek(effectiveRange.start)
+                    raf.seek(mediaRequestContext.effectiveRange.start)
                     val buffer = ByteArray(64 * 1024)
-                    var bytesToRead = effectiveRange.contentLength
+                    var bytesToRead = mediaRequestContext.effectiveRange.contentLength
                     var lastTimeUpdate = System.currentTimeMillis()
                     var chunkCount = 0
 
@@ -227,14 +223,14 @@ class HttpMediaServer @Inject constructor(
                         if (chunkCount % 16 == 0) {
                             val now = System.currentTimeMillis()
                             if (now - lastTimeUpdate >= 5000) {
-                                updateClientActivity(clientInfo, "Streaming: ${file.name}")
+                                updateClientActivity(mediaRequestContext.clientInfo, "Streaming: ${file.name}")
                                 lastTimeUpdate = now
                             }
                         }
                     }
                 }
             }
-            updateClientActivity(clientInfo, "Streaming: ${file.name}")
+            updateClientActivity(mediaRequestContext.clientInfo, "Streaming: ${file.name}")
         }
     }
 
@@ -298,6 +294,26 @@ class HttpMediaServer @Inject constructor(
         val endIdx = xml.indexOf(closeTag, contentStart)
         if (endIdx == -1) return null
         return xml.substring(contentStart + 1, endIdx).trim()
+    }
+}
+
+data class MediaRequestContext(
+    val call: HttpCall,
+    val file: File,
+    val effectiveRange: EffectiveRange,
+) {
+    val clientInfo = call.clientInfo
+    val status: Int = if (effectiveRange.isPartial) 206 else 200
+    val logLine: String get() {
+        val rangeHeader = call.request.getHeader("Range")
+        val tags = listOf(
+            "client_ip=${clientInfo.ipAddress}",
+            "user_agent=${clientInfo.userAgent}",
+            "range=$rangeHeader",
+            "file=${file.name}"
+        )
+
+        return "Media request: ${tags.joinToString(", ")}"
     }
 }
 
