@@ -198,7 +198,16 @@ class HttpMediaServer @Inject constructor(
         mediaRequestContext.call.respondStream(
             contentType = contentType,
             status = mediaRequestContext.status,
-            contentLength = mediaRequestContext.effectiveRange.contentLength
+            contentLength = mediaRequestContext.effectiveRange.contentLength,
+            onClientDisconnected = { e ->
+                Timber.d(
+                    "Client disconnected while streaming: client_ip=%s, user_agent=%s, file=%s: %s",
+                    mediaRequestContext.clientInfo.ipAddress,
+                    mediaRequestContext.clientInfo.userAgent,
+                    file.name,
+                    e.message
+                )
+            }
         ) { outputStream ->
             withContext(Dispatchers.IO) {
                 RandomAccessFile(file, "r").use { raf ->
