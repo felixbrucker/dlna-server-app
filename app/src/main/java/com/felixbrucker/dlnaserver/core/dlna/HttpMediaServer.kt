@@ -91,8 +91,7 @@ class HttpMediaServer @Inject constructor(
     private fun configureRouting(server: HttpServer, hostIp: String) {
         server.get("/description.xml") { call ->
             updateClientActivity(call.clientInfo, "Browsing Description")
-            val xml = ContentDirectoryXml.generateDeviceDescription()
-            call.respondText(xml, ContentType.Text.Xml)
+            call.respondText(ContentDirectoryXml.generateDeviceDescription(), ContentType.Text.Xml)
         }
 
         server.get("/scpd/ContentDirectory.xml") { call ->

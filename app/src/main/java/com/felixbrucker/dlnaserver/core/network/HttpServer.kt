@@ -61,8 +61,6 @@ class HttpHeaders(vararg pairs: Pair<String, String>) {
         }
     }
 
-    constructor(initialHeaders: Map<String, String>) : this(*initialHeaders.toList().toTypedArray())
-
     operator fun set(name: String, value: String) {
         map[name.lowercase()] = value
     }
