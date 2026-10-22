@@ -71,7 +71,7 @@ class HttpServerTest {
         var foundHeader = false
         while (true) {
             val line = reader.readLine() ?: break
-            if (line.startsWith("X-Custom-Header: CustomValue") || line.startsWith("x-custom-header: CustomValue")) {
+            if (line.lowercase().startsWith("x-custom-header: customvalue")) {
                 foundHeader = true
             }
             sb.append(line)
@@ -130,7 +130,7 @@ class HttpServerTest {
         socket.close()
 
         assertTrue(statusLine != null && statusLine.contains("200 OK"))
-        assertTrue(headers.any { it.startsWith("Content-Length: 0") })
+        assertTrue(headers.any { it.lowercase().startsWith("content-length: 0") })
     }
 
     @Test
