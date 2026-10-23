@@ -33,48 +33,21 @@ A modern, high-performance Android DLNA / UPnP Media Server written in Kotlin us
 
 - **Modern Architecture & Testing**
   - Clean Layered Architecture (UDF) with strict decoupling between `core/` modules and `feature/` presentation views.
-  - Comprehensive unit test suite with JUnit 4, MockK, Coroutines Test, and **Kover** code coverage reports.
+  - Comprehensive unit test suite with JUnit 4, MockK and Coroutines Test.
 
 ---
 
 ## 🏗️ Architecture & Tech Stack
 
-| Layer | Library / Tool | Description |
-| :--- | :--- | :--- |
-| **Language & SDK** | Kotlin 2.4+, Android SDK 37 (Min API 26) | Idiomatic Kotlin with KSP symbol processing targeting Java 25 compatibility |
-| **UI Framework** | Jetpack Compose + Material 3 | Single-Activity architecture (`MainActivity`), Navigation Compose |
-| **Dependency Injection** | Hilt (`dagger.hilt`) | Scoped dependency injection across Application, ViewModels, and Services |
-| **Database & Storage** | Room 2.8.5 + DataStore Preferences | SQLite database for directories & transcode jobs with schema tracking; DataStore for settings |
-| **Media & Transcoding** | FFmpeg Kit (GPL min) | Low-level media parsing, codec query, and hardware-accelerated video transcoding |
-| **Networking** | Custom HTTP & Multicast Socket | Asynchronous HTTP server and UDP multicast SSDP discovery engine |
-| **Logging** | Timber + Disk Log Buffer | Custom `AppLogTree` streaming logs to Logcat and daily JSON files |
-| **Testing** | JUnit 4, MockK, Kover | Coroutines testing, mock models, and 70%+ test coverage thresholds |
-
----
-
-## 📁 Package Structure
-
-```
-com.felixbrucker.dlnaserver/
-├── MainActivity.kt                     # Host Activity & Jetpack Compose Navigation
-├── MainApplication.kt                  # Application entry point & Hilt initialization
-├── core/                               # Shared Core Business Logic & Infrastructure
-│   ├── data/                           # Repositories (SharedDirectoryRepository)
-│   ├── database/                       # Room AppDatabase, DAOs, Entities, & Migrations
-│   ├── datastore/                      # DataStore Preferences (AppSettingsRepository)
-│   ├── designsystem/                   # Material 3 Theme, Colors, & Typography
-│   ├── dlna/                           # SSDP Server, HTTP Media Server, & DIDL-Lite XML Builders
-│   ├── logging/                        # Disk log tree, log buffer repository, & log models
-│   ├── model/                          # Domain models (Transcode options, presets, server status)
-│   ├── network/                        # HTTP Server engine & request routing
-│   ├── transcoder/                     # FFmpeg transcode queue manager & job handlers
-│   └── util/                           # Hardware codecs, Media metadata, MimeTypes, & Network utils
-└── feature/                            # Feature Presentation UI
-    ├── dashboard/                      # Dashboard UI, Server status card, Folder picker
-    ├── logs/                           # Log viewer screen & LogViewerViewModel
-    ├── service/                        # Foreground services (DlnaService, TranscodeService)
-    └── settings/                       # Settings screen & Transcode options setup
-```
+| Layer | Library / Tool                           | Description                                                                                   |
+| :--- |:-----------------------------------------|:----------------------------------------------------------------------------------------------|
+| **Language & SDK** | Kotlin 2.4+, Android SDK 37 (Min API 26) | Idiomatic Kotlin with KSP symbol processing targeting Java 25 compatibility                   |
+| **UI Framework** | Jetpack Compose + Material 3             | Single-Activity architecture (`MainActivity`), Navigation Compose                             |
+| **Dependency Injection** | Hilt (`dagger.hilt`)                     | Scoped dependency injection across Application, ViewModels, and Services                      |
+| **Database & Storage** | Room 2.8.5 + DataStore Preferences       | SQLite database for directories & transcode jobs with schema tracking; DataStore for settings |
+| **Media & Transcoding** | FFmpeg Kit (GPL min)                     | Low-level media parsing, codec query, and hardware-accelerated video transcoding              |
+| **Networking** | Custom HTTP & Multicast Socket           | Asynchronous HTTP server and UDP multicast SSDP discovery engine                              |
+| **Logging** | Timber + Disk Log Buffer                 | Custom `AppLogTree` streaming logs to Logcat and daily JSON files                             |
 
 ---
 
@@ -82,9 +55,9 @@ com.felixbrucker.dlnaserver/
 
 ### Prerequisites
 
-- **Android Studio**: Android Studio Ladybug or newer.
-- **JDK**: Java 25 / OpenJDK 25.
-- **Android SDK**: API Level 37 (Android 16), backward compatible down to API Level 26 (Android 8.0 Oreo).
+- Android Studio Ladybug (or newer)
+- Java 11+
+- Android SDK 37
 
 ### Building from Source
 
@@ -105,11 +78,6 @@ com.felixbrucker.dlnaserver/
    ./gradlew test
    ```
 
-4. **Verify Code Coverage (Kover)**:
-   ```bash
-   ./gradlew koverVerify
-   ```
-
 ---
 
 ## ⚙️ Required Permissions
@@ -120,7 +88,7 @@ To function as a DLNA media server, the app requests the following system permis
 - **`INTERNET` & `ACCESS_NETWORK_STATE` / `ACCESS_WIFI_STATE`**: Bind to local Wi-Fi interface and serve HTTP/UPnP requests.
 - **`CHANGE_WIFI_MULTICAST_STATE`**: Receive UDP SSDP multicast discovery packets from DLNA clients.
 - **`FOREGROUND_SERVICE` (`FOREGROUND_SERVICE_DATA_SYNC`, `FOREGROUND_SERVICE_MEDIA_PROCESSING`)**: Maintain active server and transcode operations in the background.
-- **`WAKE_LOCK`**: Keep CPU active during active media streaming sessions.
+- **`WAKE_LOCK`**: Keep CPU active during active media transcoding jobs.
 
 ---
 

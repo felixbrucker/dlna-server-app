@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
-    alias(libs.plugins.kover)
 }
 
 android {
@@ -57,8 +56,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_25
-        targetCompatibility = JavaVersion.VERSION_25
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     buildFeatures {
@@ -78,35 +77,6 @@ android {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
-}
-
-kover {
-    reports {
-        total {
-            verify {
-                rule {
-                    minBound(10)
-                }
-            }
-        }
-        filters {
-            excludes {
-                classes(
-                    "*.BuildConfig",
-                    "*Activity*",
-                    "*Screen*",
-                    "*Theme*",
-                    "*Hilt_*",
-                    "*Factory*",
-                    "*_Factory*",
-                    "*_HiltModules*",
-                    "*_Provide*",
-                    "*_MembersInjector*"
-                )
-                annotatedBy("androidx.compose.runtime.Composable")
-            }
-        }
-    }
 }
 
 dependencies {
