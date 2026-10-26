@@ -9,9 +9,7 @@ object MimeTypeUtils {
     fun getMimeType(file: File): String {
         if (file.isDirectory) return "inode/directory"
         val extension = file.extension.lowercase(Locale.ROOT)
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-        if (mimeType != null) return mimeType
-        return when (extension) {
+        val knownMime = when (extension) {
             "mp4", "m4v" -> "video/mp4"
             "mkv" -> "video/x-matroska"
             "avi" -> "video/x-msvideo"
@@ -41,13 +39,14 @@ object MimeTypeUtils {
             "bmp" -> "image/bmp"
             "heic", "heif" -> "image/heif"
 
-            else -> "application/octet-stream"
+            else -> null
         }
+        if (knownMime != null) return knownMime
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
     }
 
-    fun getUpnpClass(file: File): String {
+    fun getUpnpClass(file: File, mimeType: String = getMimeType(file)): String {
         if (file.isDirectory) return "object.container.storageFolder"
-        val mimeType = getMimeType(file)
         return when {
             mimeType.startsWith("video/") -> "object.item.videoItem"
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"

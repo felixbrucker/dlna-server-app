@@ -12,16 +12,9 @@ import com.felixbrucker.dlnaserver.core.util.MimeTypeUtils
 import java.io.File
 import java.net.URLDecoder
 import java.net.URLEncoder
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import java.time.Instant
 
 object ContentDirectoryXml {
-
-    private val isoDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
 
     fun generateDeviceDescription(
         friendlyName: String = "DLNA Server"
@@ -260,6 +253,7 @@ object ContentDirectoryXml {
         val objectsList = mutableListOf<DidlObject>()
         var totalMatches = 0
         var returnedCount = 0
+        val sharedDirPaths = sharedDirectories.map { it.path to File(it.path).absolutePath }
 
         if (objectID == "0") {
             if (browseFlag == "BrowseMetadata") {
@@ -303,7 +297,7 @@ object ContentDirectoryXml {
             if (targetDir.exists() && targetDir.isDirectory) {
                 if (browseFlag == "BrowseMetadata") {
                     val childCount = targetDir.listFiles()?.size ?: 0
-                    val parentId = getParentContainerId(targetDir, sharedDirectories)
+                    val parentId = getParentContainerId(targetDir, sharedDirPaths)
                     objectsList.add(
                         DidlContainer(
                             id = objectID,
@@ -339,7 +333,7 @@ object ContentDirectoryXml {
                             )
                         } else {
                             val mediaUrl = "$baseUrl/media?path=$encPath"
-                            objectsList.add(buildDidlItem(objectID, file, encPath, mediaUrl, sharedDirectories))
+                            objectsList.add(buildDidlItem(objectID, file, encPath, mediaUrl, sharedDirPaths))
                         }
                         returnedCount++
                     }
@@ -351,7 +345,7 @@ object ContentDirectoryXml {
             if (file.exists() && file.isFile) {
                 val encPath = encodePath(file.absolutePath)
                 val mediaUrl = "$baseUrl/media?path=$encPath"
-                objectsList.add(buildDidlItem("i_$encPath", file, encPath, mediaUrl, sharedDirectories))
+                objectsList.add(buildDidlItem("i_$encPath", file, encPath, mediaUrl, sharedDirPaths))
                 totalMatches = 1
                 returnedCount = 1
             }
@@ -371,12 +365,12 @@ object ContentDirectoryXml {
         file: File,
         encPath: String,
         mediaUrl: String,
-        sharedDirectories: List<SharedDirectory>
+        sharedDirPaths: List<Pair<String, String>>
     ): DidlItem {
         val mimeType = MimeTypeUtils.getMimeType(file)
-        val upnpClass = MimeTypeUtils.getUpnpClass(file)
+        val upnpClass = MimeTypeUtils.getUpnpClass(file, mimeType)
         val dlnaProfile = MimeTypeUtils.getDlnaProfile(file)
-        val modDate = isoDateFormat.format(Date(file.lastModified()))
+        val modDate = Instant.ofEpochMilli(file.lastModified()).toString()
 
         val metadata = MediaMetadataUtils.extractGenericMetadata(file)
 
@@ -393,7 +387,7 @@ object ContentDirectoryXml {
             url = mediaUrl
         )
 
-        val itemParentId = if (parentId.startsWith("i_")) getParentContainerId(file, sharedDirectories) else parentId
+        val itemParentId = if (parentId.startsWith("i_")) getParentContainerId(file, sharedDirPaths) else parentId
 
         return DidlItem(
             id = "i_$encPath",
@@ -408,19 +402,21 @@ object ContentDirectoryXml {
         )
     }
 
-    private fun getParentContainerId(file: File, sharedDirectories: List<SharedDirectory>): String {
-        for (sharedDir in sharedDirectories) {
-            if (file.absolutePath == File(sharedDir.path).absolutePath) {
+    private fun getParentContainerId(file: File, sharedDirPaths: List<Pair<String, String>>): String {
+        val fileAbs = file.absolutePath
+        for ((_, sharedAbs) in sharedDirPaths) {
+            if (fileAbs == sharedAbs) {
                 return "0"
             }
         }
         val parent = file.parentFile ?: return "0"
-        for (sharedDir in sharedDirectories) {
-            if (parent.absolutePath == File(sharedDir.path).absolutePath) {
-                return "f_${encodePath(sharedDir.path)}"
+        val parentAbs = parent.absolutePath
+        for ((sharedPath, sharedAbs) in sharedDirPaths) {
+            if (parentAbs == sharedAbs) {
+                return "f_${encodePath(sharedPath)}"
             }
         }
-        return "f_${encodePath(parent.absolutePath)}"
+        return "f_${encodePath(parentAbs)}"
     }
 
     fun encodePath(path: String): String {
