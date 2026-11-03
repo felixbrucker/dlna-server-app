@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.felixbrucker.dlnaserver.core.data.repository.SharedDirectoryRepository
 import com.felixbrucker.dlnaserver.core.dlna.DlnaServerEngine
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
+import com.felixbrucker.dlnaserver.core.model.NetworkInterfaceInfo
+import com.felixbrucker.dlnaserver.core.model.ServerStatus
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJob
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeJobStatus
 import com.felixbrucker.dlnaserver.core.transcoder.TranscodeQueueManager
@@ -43,6 +45,10 @@ class DashboardViewModel @Inject constructor(
     private val scannedFiles = MutableStateFlow<List<DashboardMediaFileItem>>(emptyList())
     private val isScanning = MutableStateFlow(false)
     private var scanJob: Job? = null
+
+    private var cachedAvailableInterfaces: List<NetworkInterfaceInfo> = emptyList()
+    private var lastInterfaceFetchTime = 0L
+    private var lastServerStatus: ServerStatus? = null
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<DashboardUiState> = combine(
@@ -83,7 +89,20 @@ class DashboardViewModel @Inject constructor(
             fileItem.copy(isTranscodeDisabled = isDisabled)
         }
 
-        val availableNetInterfaces = NetworkUtils.getAvailableNetworkInterfaces()
+        val now = System.currentTimeMillis()
+        val availableNetInterfaces = if (
+            cachedAvailableInterfaces.isEmpty() ||
+            serverInfo.status != lastServerStatus ||
+            now - lastInterfaceFetchTime >= 5000L
+        ) {
+            lastServerStatus = serverInfo.status
+            lastInterfaceFetchTime = now
+            NetworkUtils.getAvailableNetworkInterfaces().also {
+                cachedAvailableInterfaces = it
+            }
+        } else {
+            cachedAvailableInterfaces
+        }
 
         DashboardUiState(
             serverInfo = serverInfo,

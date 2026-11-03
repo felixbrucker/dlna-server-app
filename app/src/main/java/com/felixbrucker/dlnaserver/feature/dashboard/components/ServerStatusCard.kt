@@ -53,7 +53,6 @@ import com.felixbrucker.dlnaserver.core.model.ConnectedClientInfo
 import com.felixbrucker.dlnaserver.core.model.DlnaServerInfo
 import com.felixbrucker.dlnaserver.core.model.NetworkInterfaceInfo
 import com.felixbrucker.dlnaserver.core.model.ServerStatus
-import com.felixbrucker.dlnaserver.core.util.NetworkUtils
 
 @Composable
 fun ServerStatusCard(
@@ -127,7 +126,7 @@ private fun NetworkInterfaceDropdown(
 
     val selectedLabel = remember(selectedInterface, availableInterfaces) {
         if (selectedInterface == "auto") {
-            val active = NetworkUtils.getActiveNetworkInterface()
+            val active = availableInterfaces.firstOrNull()
             if (active != null) "Auto (${active.displayName} - ${active.ipAddress})" else "Auto (Active interface)"
         } else {
             val matched = availableInterfaces.firstOrNull { it.name == selectedInterface }
@@ -161,7 +160,7 @@ private fun NetworkInterfaceDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            val active = NetworkUtils.getActiveNetworkInterface()
+            val active = availableInterfaces.firstOrNull()
             val autoText = if (active != null) "Auto (${active.displayName} - ${active.ipAddress})" else "Auto (Active interface)"
             DropdownMenuItem(
                 text = { Text(autoText) },
