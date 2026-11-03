@@ -140,6 +140,7 @@ class TranscodeQueueManagerTest {
             while (elapsed < 5000L) {
                 try {
                     coVerify { transcodeJobDaoMock.updateJobStatus("job-1", TranscodeJobStatus.QUEUED, null) }
+                    verify { transcodeServiceLauncherMock.startService() }
                     return@withContext true
                 } catch (_: Throwable) {
                     delay(50)
