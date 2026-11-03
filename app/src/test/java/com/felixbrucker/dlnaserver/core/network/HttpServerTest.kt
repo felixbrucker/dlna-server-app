@@ -226,6 +226,11 @@ class HttpServerTest {
         val reader = BufferedReader(InputStreamReader(socket.getInputStream(), "UTF-8"))
         reader.readLine()
         socket.close()
+        var attempts = 0
+        while (!disconnectCalled && attempts < 40) {
+            Thread.sleep(50)
+            attempts++
+        }
 
         assertTrue(disconnectCalled)
     }

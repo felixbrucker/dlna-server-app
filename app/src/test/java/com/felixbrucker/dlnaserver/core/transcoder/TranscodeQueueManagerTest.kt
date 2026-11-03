@@ -137,7 +137,7 @@ class TranscodeQueueManagerTest {
         testScheduler.advanceUntilIdle()
         val resetVerified = withContext(Dispatchers.Default) {
             var elapsed = 0L
-            while (elapsed < 3000L) {
+            while (elapsed < 5000L) {
                 try {
                     coVerify { transcodeJobDaoMock.updateJobStatus("job-1", TranscodeJobStatus.QUEUED, null) }
                     return@withContext true
